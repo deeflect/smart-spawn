@@ -5,6 +5,8 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 COPY . .
 
+RUN mkdir -p /app/data
+
 ENV PORT=8080
 EXPOSE 8080
 
