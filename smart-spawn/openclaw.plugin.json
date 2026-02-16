@@ -1,0 +1,40 @@
+{
+  "id": "smart-spawn",
+  "name": "Smart Spawn",
+  "description": "Intelligent sub-agent spawning with automatic model selection.",
+  "version": "1.0.0",
+  "author": "borb",
+  "skills": ["skills/smart-spawn"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "apiUrl": {
+        "type": "string",
+        "description": "Model Intelligence API URL"
+      },
+      "defaultBudget": {
+        "type": "string",
+        "enum": ["low", "medium", "high", "any"],
+        "description": "Default budget tier"
+      },
+      "defaultMode": {
+        "type": "string",
+        "enum": ["single", "collective", "cascade", "plan"],
+        "description": "Default spawn mode"
+      },
+      "collectiveCount": {
+        "type": "number",
+        "description": "Number of models for collective mode (2-5)"
+      },
+      "telemetryOptIn": {
+        "type": "boolean",
+        "description": "Opt-in to community telemetry (anonymous model ratings)"
+      },
+      "communityUrl": {
+        "type": "string",
+        "description": "Community API URL for shared telemetry data"
+      }
+    }
+  }
+}

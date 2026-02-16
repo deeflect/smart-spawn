@@ -1,0 +1,16 @@
+{
+  "name": "@borbbot/smart-spawn",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin for intelligent sub-agent spawning with automatic model selection",
+  "main": "index.ts",
+  "type": "module",
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
+  "author": "borb",
+  "license": "MIT",
+  "keywords": ["openclaw", "plugin", "llm", "model-selection", "agent"],
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

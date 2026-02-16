@@ -1,0 +1,23 @@
+{
+  "name": "smart-spawn",
+  "version": "1.0.0",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "refresh": "bun run -e \"import { pipeline } from './src/enrichment/pipeline.ts'; await pipeline.refresh();\""
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "hono": "^4.11.9",
+    "yaml": "^2.8.2"
+  }
+}

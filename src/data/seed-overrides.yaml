@@ -1,0 +1,12 @@
+# Manual score overrides — highest priority in the enrichment pipeline
+# Use this to correct wrong automated scores or fill in models missing from all sources
+# Format: openrouterId → categories + scores (0-100)
+
+# Example override (uncomment and edit as needed):
+# anthropic/claude-opus-4-6:
+#   categories: [coding, reasoning, creative, general]
+#   scores:
+#     coding: 95
+#     reasoning: 96
+#     creative: 92
+#     general: 94
