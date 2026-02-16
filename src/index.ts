@@ -52,7 +52,7 @@ console.log(`Starting server on port ${port}`);
 const server = Bun.serve({
   port,
   hostname: "0.0.0.0",
-  fetch: app.fetch,
+  fetch: (req: Request, server: any) => app.fetch(req),
 });
 console.log(`Server listening on http://0.0.0.0:${server.port}`);
 
