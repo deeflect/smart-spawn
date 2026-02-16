@@ -49,10 +49,12 @@ console.log(`Loading cached data...`);
 await pipeline.loadFromCache();
 
 console.log(`Starting server on port ${port}`);
-export default {
+const server = Bun.serve({
   port,
+  hostname: "0.0.0.0",
   fetch: app.fetch,
-};
+});
+console.log(`Server listening on http://0.0.0.0:${server.port}`);
 
 // Background refresh on startup, then start 6h timer
 console.log(`Starting background refresh...`);
