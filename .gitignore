@@ -8,3 +8,9 @@ data/*.db-shm
 .env.*
 *.log
 .DS_Store
+CLAUDE.md
+SPEC.md
+TODO.md
+TEST-RESULTS.md
+agents.md
+.claude/

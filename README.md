@@ -182,7 +182,7 @@ curl "localhost:3000/status"
 ### 1. Run the API
 
 ```bash
-git clone https://github.com/borbbot/smart-spawn.git
+git clone https://github.com/deeflect/smart-spawn.git
 cd smart-spawn
 bun install
 bun run dev
@@ -276,8 +276,23 @@ Task-type multipliers boost relevant benchmarks:
 smart-spawn/
 ├── src/
 │   ├── index.ts              # Hono server entrypoint
+│   ├── db.ts                 # SQLite database layer
+│   ├── model-selection.ts    # Model sorting + blended scoring
+│   ├── scoring-utils.ts      # Score blending utilities
+│   ├── context-signals.ts    # Context-aware score boosting
+│   ├── task-splitter.ts      # Task decomposition logic
+│   ├── types.ts              # Shared types
 │   ├── enrichment/
-│   │   └── pipeline.ts       # Data fetching + enrichment pipeline
+│   │   ├── pipeline.ts       # Data fetching + enrichment pipeline
+│   │   ├── rules.ts          # Enrichment rules
+│   │   ├── scoring.ts        # Benchmark scoring
+│   │   ├── alias-map.ts      # Model alias resolution
+│   │   └── sources/
+│   │       ├── openrouter.ts     # OpenRouter model data
+│   │       ├── artificial.ts     # Artificial Analysis benchmarks
+│   │       ├── lmarena.ts        # LMArena ELO ratings
+│   │       ├── livebench.ts      # LiveBench scores
+│   │       └── hf-leaderboard.ts # HuggingFace Open LLM
 │   ├── routes/
 │   │   ├── pick.ts           # /pick — best model selection
 │   │   ├── recommend.ts      # /recommend — top N models
@@ -289,14 +304,15 @@ smart-spawn/
 │   │   ├── refresh.ts        # /refresh — force update
 │   │   ├── spawn-log.ts      # /spawn-log — history
 │   │   └── community.ts      # /community — shared stats
-│   ├── roles/
-│   │   ├── blocks.ts         # 150+ composable role blocks
-│   │   └── composer.ts       # Block assembly engine
-│   └── types.ts              # Shared types
+│   └── roles/
+│       ├── blocks.ts         # 150+ composable role blocks
+│       └── composer.ts       # Block assembly engine
 ├── smart-spawn/              # OpenClaw plugin
 │   ├── index.ts              # Plugin entrypoint (registerTool)
 │   ├── openclaw.plugin.json  # Plugin manifest
 │   ├── package.json
+│   ├── src/
+│   │   └── api-client.ts     # API client for the plugin
 │   └── skills/
 │       └── smart-spawn/
 │           └── SKILL.md      # Agent instructions
