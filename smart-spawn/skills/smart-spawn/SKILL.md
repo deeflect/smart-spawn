@@ -1,183 +1,114 @@
 ---
 name: smart-spawn
-description: "Act on smart_spawn tool results. When smart_spawn returns a model recommendation, automatically spawn the sub-agent using sessions_spawn with that model."
+description: "Intelligent sub-agent spawning with automatic model selection and role composition. Use instead of sessions_spawn for optimal model routing."
 ---
 
-# Smart Spawn — Intelligent Sub-Agent Spawning
+# Smart Spawn
 
-When you need to delegate a task to a sub-agent, use `smart_spawn` instead of `sessions_spawn` directly. It picks the optimal model AND can inject expert role instructions.
+Use `smart_spawn` to delegate tasks to sub-agents. It picks the best model and can inject expert role instructions that make cheap models perform like specialists.
 
-## How It Works
+## Flow
 
-1. You call `smart_spawn` with the task + role hints
-2. It returns JSON with model recommendation + enriched task
-3. You call `sessions_spawn` with those values
+1. Analyze the task → pick role blocks if relevant
+2. Call `smart_spawn` → get JSON with model + enriched task
+3. Call `sessions_spawn` with the returned values
 
-## Specifying Role Blocks
+## Modes
 
-When calling `smart_spawn`, analyze the task and specify relevant blocks. This gives the sub-agent expert-level instructions that make even cheap models perform like specialists.
+| Mode | When to use |
+|------|------------|
+| `single` | Default. One optimal model. |
+| `collective` | Need diverse perspectives. Spawns N models, you merge results. |
+| `cascade` | Cost-sensitive. Cheap model first, escalate to premium if quality is poor. |
+| `plan` | Multi-step sequential tasks. Format task as numbered list. |
+| `swarm` | Complex tasks with parallel subtasks. API builds a dependency DAG. |
 
-**Only specify blocks when they're clearly relevant.** Don't guess — if unsure, omit them and the task goes raw.
+## Role Blocks
+
+Analyze the task and specify blocks that match. **Only include what's clearly relevant — omit if unsure.** Guardrails auto-apply based on persona when not specified.
 
 ### persona — who the sub-agent is
 
-Pick the most specific persona that fits:
+**Engineering:** `software-engineer` `frontend-engineer` `backend-engineer` `fullstack-engineer` `devops-engineer` `data-engineer` `mobile-engineer` `systems-engineer` `security-engineer` `ml-engineer` `performance-engineer`
 
-**Engineering:** `software-engineer`, `frontend-engineer`, `backend-engineer`, `fullstack-engineer`, `devops-engineer`, `data-engineer`, `mobile-engineer`, `systems-engineer`, `security-engineer`, `ml-engineer`, `performance-engineer`
+**Architecture:** `architect` `api-designer` `database-architect`
 
-**Architecture:** `architect`, `api-designer`, `database-architect`
+**Analysis:** `analyst` `data-analyst` `market-analyst` `financial-analyst`
 
-**Analysis:** `analyst`, `data-analyst`, `market-analyst`, `financial-analyst`
+**Problem Solving:** `problem-solver` `debugger` `mathematician`
 
-**Problem Solving:** `problem-solver`, `debugger`, `mathematician`
+**Content:** `writer` `technical-writer` `copywriter` `editor` `social-media`
 
-**Content:** `writer`, `technical-writer`, `copywriter`, `editor`, `social-media`
+**Product/Business:** `product-manager` `strategist` `ux-researcher` `project-manager`
 
-**Product/Business:** `product-manager`, `strategist`, `ux-researcher`, `project-manager`
+**Design:** `ui-designer` `brand-designer`
 
-**Design:** `ui-designer`, `brand-designer`
+**Other:** `sysadmin` `teacher` `legal-analyst` `assistant`
 
-**Other:** `sysadmin`, `teacher`, `legal-analyst`, `assistant`
+### stack — tech expertise (array, max 4)
 
-### stack — tech-specific expertise (array)
+**Frontend:** `react` `nextjs` `vue` `svelte` `angular` `tailwind` `shadcn` `css` `animation` `threejs`
 
-Pick up to 4 that match the task. Each adds 3-4 expert-level bullets.
+**Languages:** `typescript` `python` `rust` `go` `java` `csharp` `php` `ruby` `elixir` `swift` `kotlin`
 
-**Frontend:** `react`, `nextjs`, `vue`, `svelte`, `angular`, `tailwind`, `shadcn`, `css`, `animation`, `threejs`
+**Backend:** `nodejs` `fastapi` `django` `flask` `react-native` `flutter`
 
-**Languages:** `typescript`, `python`, `rust`, `go`, `java`, `csharp`, `php`, `ruby`, `elixir`, `swift`, `kotlin`
+**Data:** `sql` `postgres` `mysql` `supabase` `prisma` `drizzle` `mongodb` `redis` `elasticsearch` `kafka` `rabbitmq`
 
-**Backend:** `nodejs`, `fastapi`, `django`, `flask`
+**APIs:** `graphql` `rest` `grpc` `websocket` `auth` `stripe` `payment-general`
 
-**Mobile:** `react-native`, `flutter`
+**DevOps:** `docker` `kubernetes` `cicd` `terraform` `aws` `gcp` `nginx` `caddy` `monitoring`
 
-**Data/DB:** `sql`, `postgres`, `mysql`, `supabase`, `prisma`, `drizzle`, `mongodb`, `redis`, `elasticsearch`, `kafka`, `rabbitmq`
+**AI/ML:** `llm` `rag` `langchain` `fine-tuning` `pytorch` `pandas`
 
-**APIs:** `graphql`, `rest`, `grpc`, `websocket`, `auth`, `stripe`, `payment-general`
+**Web3:** `solidity` `web3-frontend`
 
-**DevOps:** `docker`, `kubernetes`, `cicd`, `terraform`, `aws`, `gcp`, `nginx`, `caddy`, `monitoring`
+**Platforms:** `vercel` `railway` `cloudflare` `firebase` `convex`
 
-**Testing:** `testing`, `playwright`
+**Other:** `bash` `powershell` `markdown` `astro` `json` `yaml` `regex` `email` `a11y` `seo` `performance` `i18n` `git` `testing` `playwright`
 
-**AI/ML:** `llm`, `rag`, `langchain`, `fine-tuning`, `pytorch`, `pandas`
+### domain — industry (one)
 
-**Web3:** `solidity`, `web3-frontend`
+`fintech` `ecommerce` `saas` `marketplace` `gaming` `crypto` `healthcare` `education` `media` `iot` `logistics` `real-estate` `social-platform` `legal` `developer-tools`
 
-**Platforms:** `vercel`, `railway`, `cloudflare`, `firebase`, `convex`
+### format — output shape (one)
 
-**Other:** `bash`, `powershell`, `markdown`, `astro`, `json`, `yaml`, `regex`, `email`, `a11y`, `seo`, `performance`, `i18n`, `git`
+`full-implementation` `fix-debug` `refactor` `explain` `review` `comparison` `planning` `documentation` `copywriting` `social-post` `data-report` `migration` `pitch-deck` `project-proposal` `user-story` `email` `legal-doc`
 
-### domain — industry expertise (one)
+### guardrails — quality rules (array, auto-applied if omitted)
 
-`fintech`, `ecommerce`, `saas`, `marketplace`, `gaming`, `crypto`, `healthcare`, `education`, `media`, `iot`, `logistics`, `real-estate`, `social-platform`, `legal`, `developer-tools`
-
-### format — output structure (one)
-
-`full-implementation`, `fix-debug`, `refactor`, `explain`, `review`, `comparison`, `planning`, `documentation`, `copywriting`, `social-post`, `data-report`, `migration`, `pitch-deck`, `project-proposal`, `user-story`, `email`, `legal-doc`
-
-### guardrails — quality rules (array)
-
-`code`, `research`, `concise`, `security`, `production`, `accuracy`
-
-## Examples
-
-### Coding task with full context
-```
-smart_spawn(
-  task: "Build a checkout page with Stripe integration",
-  category: "coding",
-  budget: "low",
-  persona: "frontend-engineer",
-  stack: ["react", "nextjs", "stripe", "tailwind"],
-  domain: "ecommerce",
-  format: "full-implementation",
-  guardrails: ["code"]
-)
-```
-
-### Security audit
-```
-smart_spawn(
-  task: "Review this authentication middleware for vulnerabilities",
-  category: "coding",
-  persona: "security-engineer",
-  stack: ["nodejs", "auth"],
-  format: "review",
-  guardrails: ["security", "code"]
-)
-```
-
-### Market research
-```
-smart_spawn(
-  task: "Analyze the competitive landscape for AI coding assistants",
-  category: "research",
-  persona: "market-analyst",
-  domain: "developer-tools",
-  format: "comparison",
-  guardrails: ["accuracy", "research"]
-)
-```
-
-### Landing page copy
-```
-smart_spawn(
-  task: "Write landing page copy for our developer tool",
-  category: "creative",
-  persona: "copywriter",
-  domain: "saas",
-  format: "copywriting"
-)
-```
-
-### Simple task (no blocks needed)
-```
-smart_spawn(
-  task: "What's 42 + 69?",
-  budget: "low"
-)
-```
+`code` `research` `concise` `security` `production` `accuracy`
 
 ## Acting on Results
 
-### Single Mode (`action: "spawn"`)
+### `action: "spawn"` (single/fallback)
 ```
-sessions_spawn(
-  task: <task from result>,
-  model: <model from result>,
-  label: <label from result>
-)
+sessions_spawn(task: result.task, model: result.model, label: result.label)
 ```
 
-### Collective Mode (`action: "collective"`)
-Spawn each model, then synthesize:
+### `action: "collective"`
+Spawn each model, wait for all, merge the best parts:
 ```
-For each model in result.models:
-  sessions_spawn(task: <task>, model: <model.id>, label: <label>)
+for model in result.models:
+  sessions_spawn(task: result.task, model: model.id, label: model.label)
 ```
-Wait for all to complete, merge the best parts.
 
-### Cascade Mode (`action: "cascade"`)
-1. Spawn with `cheapModel`
+### `action: "cascade"`
+1. Spawn `cheapModel` first
 2. Check quality via `sessions_history`
-3. If poor quality → spawn with `premiumModel`
-4. If good → return cheap result (saved money)
+3. Escalate to `premiumModel` if: incomplete, wrong, vague, or too short for the task
+4. Return whichever result is good
 
-**Escalation triggers:** "I don't know", syntax errors, incomplete code, vague answers, suspiciously short for complex task.
+### `action: "plan"`
+Execute steps sequentially, pass each output as context to the next.
 
-### Plan Mode
-When using plan mode, format the task as a numbered list:
-```
-smart_spawn(
-  mode: "plan",
-  task: "1. Create schema\n2. Build API\n3. Add tests"
-)
-```
+### `action: "swarm"`
+Execute wave-by-wave. Spawn all tasks in a wave in parallel. Pass outputs to dependents in the next wave.
 
 ## Rules
 
 - **Always spawn after smart_spawn returns** — don't just report the recommendation
-- Use the exact `model` string from the result (already routed correctly)
-- Use the `label` from the result for tracking
-- **Don't guess blocks** — if unsure about persona/stack/domain, omit them
-- If spawn fails, report the error with model ID and reason
+- Use the exact `model` and `task` strings from the result
+- **Don't guess blocks** — if unsure, omit and the task goes raw
+- For plan mode, format tasks as numbered lists
+- After completion, consider calling `smart_spawn_feedback` with a 1-5 rating

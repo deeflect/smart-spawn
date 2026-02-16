@@ -89,6 +89,21 @@ export function composeFromExplicit(input: ComposeInput): ComposeResult {
     };
   }
 
+  // Auto-apply guardrails based on persona when agent didn't specify any
+  const effectiveGuardrails = [...(guardrails ?? [])];
+  if (effectiveGuardrails.length === 0 && persona) {
+    const codePersonas = ["software-engineer", "frontend-engineer", "backend-engineer", "fullstack-engineer", "devops-engineer", "data-engineer", "mobile-engineer", "systems-engineer", "ml-engineer", "performance-engineer", "database-architect", "api-designer"];
+    const securityPersonas = ["security-engineer"];
+    const researchPersonas = ["analyst", "data-analyst", "market-analyst", "financial-analyst", "ux-researcher"];
+    const productionPersonas = ["devops-engineer", "sysadmin", "architect"];
+
+    if (codePersonas.includes(persona)) effectiveGuardrails.push("code");
+    if (securityPersonas.includes(persona)) effectiveGuardrails.push("security", "code");
+    if (researchPersonas.includes(persona)) effectiveGuardrails.push("research", "accuracy");
+    if (productionPersonas.includes(persona)) effectiveGuardrails.push("production");
+    effectiveGuardrails.push("concise");
+  }
+
   const sections: string[] = [];
 
   // 1. Persona
@@ -132,11 +147,11 @@ export function composeFromExplicit(input: ComposeInput): ComposeResult {
     sections.push(`### Output\n${formatBlock.instructions.map(i => `- ${i}`).join("\n")}`);
   }
 
-  // 5. Guardrails (cap at 6)
+  // 5. Guardrails (cap at 6) — includes auto-applied ones
   const validGuardrails: string[] = [];
-  if (guardrails && guardrails.length > 0) {
+  if (effectiveGuardrails.length > 0) {
     const allRails: string[] = [];
-    for (const key of guardrails) {
+    for (const key of [...new Set(effectiveGuardrails)]) {
       const rules = GUARDRAILS[key];
       if (rules) {
         validGuardrails.push(key);
