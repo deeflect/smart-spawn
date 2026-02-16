@@ -1,12 +1,9 @@
 import { Hono } from "hono";
-import { pipeline } from "../enrichment/pipeline.ts";
-import { dbGetContextScoreBatch, dbGetCommunityScoreBatch } from "../db.ts";
 import type { Budget, Category } from "../types.ts";
-import { BUDGET_THRESHOLDS } from "../types.ts";
-import { blendScore } from "../scoring-utils.ts";
-import { computeContextBoost, parseContextTags } from "../context-signals.ts";
+import { parseContextTags } from "../context-signals.ts";
 import { splitTask } from "../task-splitter.ts";
 import type { SplitMethod } from "../task-splitter.ts";
+import { pickBestModel } from "../model-selection.ts";
 
 export const swarmRoute = new Hono();
 
@@ -290,59 +287,6 @@ function computeWaves(taskIds: string[], edges: Edge[], maxParallel: number): Ma
   return waveMap;
 }
 
-// --- Model picking (reuses same pattern as decompose) ---
-
-interface TaskModelPick {
-  id: string;
-  name: string;
-  provider: string;
-  score: number;
-  pricing: { prompt: number; completion: number };
-  reason: string;
-}
-
-function pickModelForTask(category: Category, budget: Budget, contextTags: string[] = []): TaskModelPick | null {
-  const state = pipeline.getState();
-  const tier = BUDGET_THRESHOLDS[budget] ?? BUDGET_THRESHOLDS.medium;
-  const normParams = pipeline.getNormParams();
-
-  const filtered = state.models
-    .filter((m) => m.pricing.prompt >= tier.min && m.pricing.prompt <= tier.max)
-    .filter((m) => m.categories.includes(category) || m.categories.includes("general"));
-
-  const ctxScores = dbGetContextScoreBatch(category, contextTags);
-  const cmScores = dbGetCommunityScoreBatch(category);
-
-  const candidates = filtered.sort((a, b) => {
-    const aCtx = contextTags.length ? (ctxScores.get(a.id) ?? null) : null;
-    const bCtx = contextTags.length ? (ctxScores.get(b.id) ?? null) : null;
-    const aCm = cmScores.get(a.id) ?? null;
-    const bCm = cmScores.get(b.id) ?? null;
-    const aBoost = computeContextBoost(a, contextTags, normParams);
-    const bBoost = computeContextBoost(b, contextTags, normParams);
-    const aScore = blendScore(a.scores[category] ?? a.scores.general ?? 0, a.id, category, { contextScore: aCtx, communityScore: aCm }) + aBoost;
-    const bScore = blendScore(b.scores[category] ?? b.scores.general ?? 0, b.id, category, { contextScore: bCtx, communityScore: bCm }) + bBoost;
-    return bScore - aScore;
-  });
-
-  const best = candidates[0];
-  if (!best) return null;
-
-  const ctxScore = contextTags.length ? (ctxScores.get(best.id) ?? null) : null;
-  const cmScore = cmScores.get(best.id) ?? null;
-  const ctxBoost = computeContextBoost(best, contextTags, normParams);
-  const score = blendScore(best.scores[category] ?? best.scores.general ?? 0, best.id, category, { contextScore: ctxScore, communityScore: cmScore }) + ctxBoost;
-
-  return {
-    id: best.id,
-    name: best.name,
-    provider: best.provider,
-    score: Math.round(score * 100) / 100,
-    pricing: best.pricing,
-    reason: `Best ${category} model at ${budget} budget ($${tier.min}-${tier.max}/M) — score: ${Math.round(score * 100) / 100}${ctxBoost > 0 ? ` (context boost: +${ctxBoost})` : ""}`,
-  };
-}
-
 // --- Route handler ---
 
 swarmRoute.post("/", async (c) => {
@@ -410,7 +354,7 @@ swarmRoute.post("/", async (c) => {
 
   // Pick a model for each task
   const dagTasks = swarmTasks.map((t) => {
-    const pick = pickModelForTask(t.category, t.budget, contextTags);
+    const pick = pickBestModel(t.category, t.budget, contextTags);
     return {
       id: t.id,
       description: t.description,

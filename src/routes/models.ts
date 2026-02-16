@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { pipeline } from "../enrichment/pipeline.ts";
 import type { Category, Tier } from "../types.ts";
+import { KNOWN_CATEGORIES } from "../scoring-utils.ts";
 
 export const modelsRoute = new Hono();
 
@@ -26,11 +27,9 @@ modelsRoute.get("/", (c) => {
   }
 
   // Sort — sort param can be "cost", "efficiency", a category name, or "score" (default)
-  const CATEGORIES: Set<string> = new Set([
-    "coding", "reasoning", "creative", "fast-cheap", "vision", "research", "general",
-  ]);
+  const categorySet = new Set<string>(KNOWN_CATEGORIES);
   // If sort is a category name, use that as the sort category
-  const sortCategory = CATEGORIES.has(sort) ? (sort as Category) : category;
+  const sortCategory = categorySet.has(sort) ? (sort as Category) : category;
 
   if (sort === "cost") {
     filtered.sort((a, b) => a.pricing.prompt - b.pricing.prompt);

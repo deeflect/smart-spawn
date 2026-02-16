@@ -181,6 +181,26 @@ export default function (api: any) {
     return instanceId;
   }
 
+  /** Build a fallback-to-single-mode response when the API is unavailable */
+  function buildFallbackResponse(category: string, budget: string, enrichedTask: string, context?: string) {
+    const modelId = getFallback(category);
+    client.logSpawn({ model: modelId, category, budget, mode: "single", role: "primary", source: "fallback", context });
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          action: "spawn",
+          model: modelId,
+          task: enrichedTask,
+          category,
+          budget,
+          reason: "API unavailable, falling back to single mode",
+          source: "fallback",
+        }),
+      }],
+    };
+  }
+
   api.registerTool({
     name: "smart_spawn",
     description: `Intelligently spawn sub-agent(s) for a task. Automatically selects the best model(s) based on task type, budget, and strategy. Use this instead of sessions_spawn when you want optimal model selection. Do NOT use this when the user explicitly requests a specific agent or model.`,
@@ -333,22 +353,7 @@ export default function (api: any) {
             }],
           };
         } catch {
-          const fallbackModel = getFallback(category);
-          client.logSpawn({ model: fallbackModel, category, budget, mode: "single", role: "primary", source: "fallback", context });
-          return {
-            content: [{
-              type: "text",
-              text: JSON.stringify({
-                action: "spawn",
-                model: fallbackModel,
-                task: enrichedTask,
-                category,
-                budget,
-                reason: "API unavailable, falling back to single mode",
-                source: "fallback",
-              }),
-            }],
-          };
+          return buildFallbackResponse(category, budget, enrichedTask, context);
         }
       }
 
@@ -383,21 +388,7 @@ export default function (api: any) {
             }],
           };
         } catch {
-          const fallbackModel = getFallback(category);
-          client.logSpawn({ model: fallbackModel, category, budget, mode: "single", role: "primary", source: "fallback", context });
-          return {
-            content: [{
-              type: "text",
-              text: JSON.stringify({
-                action: "spawn",
-                model: fallbackModel,
-                task: enrichedTask,
-                category,
-                reason: "API unavailable, falling back to single mode",
-                source: "fallback",
-              }),
-            }],
-          };
+          return buildFallbackResponse(category, budget, enrichedTask, context);
         }
       }
 
@@ -485,24 +476,7 @@ export default function (api: any) {
             }],
           };
         } catch {
-          // Fallback to single mode on API error
-          const modelId = getFallback(category);
-          client.logSpawn({ model: modelId, category, budget, mode: "single", role: "primary", source: "fallback", context });
-
-          return {
-            content: [{
-              type: "text",
-              text: JSON.stringify({
-                action: "spawn",
-                model: modelId,
-                task: enrichedTask,
-                category,
-                budget,
-                reason: "API unavailable, falling back to single mode",
-                source: "fallback",
-              }),
-            }],
-          };
+          return buildFallbackResponse(category, budget, enrichedTask, context);
         }
       }
 
@@ -598,24 +572,7 @@ export default function (api: any) {
             }],
           };
         } catch {
-          // Fallback to single mode on API error
-          const modelId = getFallback(category);
-          client.logSpawn({ model: modelId, category, budget, mode: "single", role: "primary", source: "fallback", context });
-
-          return {
-            content: [{
-              type: "text",
-              text: JSON.stringify({
-                action: "spawn",
-                model: modelId,
-                task: enrichedTask,
-                category,
-                budget,
-                reason: "API unavailable, falling back to single mode",
-                source: "fallback",
-              }),
-            }],
-          };
+          return buildFallbackResponse(category, budget, enrichedTask, context);
         }
       }
 

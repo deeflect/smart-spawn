@@ -1,10 +1,11 @@
 import { Hono } from "hono";
 import { pipeline } from "../enrichment/pipeline.ts";
-import { dbGetPersonalScore, dbGetContextScoreBatch, dbGetCommunityScoreBatch } from "../db.ts";
+import { dbGetPersonalScore } from "../db.ts";
 import type { Budget, Category, EnrichedModel } from "../types.ts";
 import { BUDGET_THRESHOLDS } from "../types.ts";
-import { KNOWN_CATEGORIES, classifyTask, blendScore } from "../scoring-utils.ts";
-import { computeContextBoost, parseContextTags } from "../context-signals.ts";
+import { KNOWN_CATEGORIES, classifyTask } from "../scoring-utils.ts";
+import { parseContextTags } from "../context-signals.ts";
+import { sortModelsByScore } from "../model-selection.ts";
 
 export const recommendRoute = new Hono();
 
@@ -23,7 +24,6 @@ recommendRoute.get("/", (c) => {
   const require = (c.req.query("require") ?? "").split(",").filter(Boolean);
   const minContext = parseInt(c.req.query("minContext") ?? "0", 10) || 0;
   const contextTags = parseContextTags(c.req.query("context") ?? undefined);
-  const normParams = pipeline.getNormParams();
 
   // Classify task
   const category = KNOWN_CATEGORIES.includes(taskParam as Category)
@@ -63,22 +63,8 @@ recommendRoute.get("/", (c) => {
     (m) => m.categories.includes(category) || m.categories.includes("general")
   );
 
-  // Batch-load scores to avoid N+1 queries in sort
-  const ctxScores = dbGetContextScoreBatch(category, contextTags);
-  const cmScores = dbGetCommunityScoreBatch(category);
-
   // Sort by blended score (benchmark + personal + context + community)
-  candidates.sort((a, b) => {
-    const aCtx = contextTags.length ? (ctxScores.get(a.id) ?? null) : null;
-    const bCtx = contextTags.length ? (ctxScores.get(b.id) ?? null) : null;
-    const aCm = cmScores.get(a.id) ?? null;
-    const bCm = cmScores.get(b.id) ?? null;
-    const aBoost = computeContextBoost(a, contextTags, normParams);
-    const bBoost = computeContextBoost(b, contextTags, normParams);
-    const aScore = blendScore(a.scores[category] ?? a.scores.general ?? 0, a.id, category, { contextScore: aCtx, communityScore: aCm }) + aBoost;
-    const bScore = blendScore(b.scores[category] ?? b.scores.general ?? 0, b.id, category, { contextScore: bCtx, communityScore: bCm }) + bBoost;
-    return bScore - aScore;
-  });
+  sortModelsByScore(candidates, category, contextTags);
 
   // Take top N, preferring diverse providers
   const recommendations = pickDiverse(candidates, count, category);

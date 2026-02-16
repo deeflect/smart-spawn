@@ -1,10 +1,11 @@
 import { Hono } from "hono";
 import { pipeline } from "../enrichment/pipeline.ts";
-import { dbGetPersonalScore, dbGetContextScore, dbGetCommunityScore, dbGetPersonalScoreBatch, dbGetContextScoreBatch, dbGetCommunityScoreBatch } from "../db.ts";
+import { dbGetPersonalScore, dbGetContextScore, dbGetCommunityScore } from "../db.ts";
 import type { Budget, Category } from "../types.ts";
 import { BUDGET_THRESHOLDS } from "../types.ts";
 import { KNOWN_CATEGORIES, blendScore } from "../scoring-utils.ts";
 import { computeContextBoost, parseContextTags } from "../context-signals.ts";
+import { sortModelsByScore } from "../model-selection.ts";
 
 export const pickRoute = new Hono();
 
@@ -28,7 +29,6 @@ pickRoute.get("/", (c) => {
 
   // Context tags for context-aware routing
   const contextTags = parseContextTags(c.req.query("context") ?? undefined);
-  const normParams = pipeline.getNormParams();
 
   const state = pipeline.getState();
   const tier = BUDGET_THRESHOLDS[budget] ?? BUDGET_THRESHOLDS.medium;
@@ -41,21 +41,7 @@ pickRoute.get("/", (c) => {
       (m) => m.categories.includes(category) || m.categories.includes("general")
     );
 
-  // Batch-load scores to avoid N+1 queries in sort
-  const ctxScores = dbGetContextScoreBatch(category, contextTags);
-  const cmScores = dbGetCommunityScoreBatch(category);
-
-  const candidates = filtered.sort((a, b) => {
-      const aCtx = contextTags.length ? (ctxScores.get(a.id) ?? null) : null;
-      const bCtx = contextTags.length ? (ctxScores.get(b.id) ?? null) : null;
-      const aCm = cmScores.get(a.id) ?? null;
-      const bCm = cmScores.get(b.id) ?? null;
-      const aBoost = computeContextBoost(a, contextTags, normParams);
-      const bBoost = computeContextBoost(b, contextTags, normParams);
-      const aScore = blendScore(a.scores[category] ?? a.scores.general ?? 0, a.id, category, { contextScore: aCtx, communityScore: aCm }) + aBoost;
-      const bScore = blendScore(b.scores[category] ?? b.scores.general ?? 0, b.id, category, { contextScore: bCtx, communityScore: bCm }) + bBoost;
-      return bScore - aScore;
-    });
+  const candidates = sortModelsByScore(filtered, category, contextTags);
 
   const best = candidates[0];
 
@@ -75,7 +61,7 @@ pickRoute.get("/", (c) => {
   const personalScore = dbGetPersonalScore(best.id, category);
   const contextScore = contextTags.length ? dbGetContextScore(best.id, category, contextTags) : null;
   const communityScore = dbGetCommunityScore(best.id, category);
-  const contextBoost = computeContextBoost(best, contextTags, normParams);
+  const contextBoost = computeContextBoost(best, contextTags, pipeline.getNormParams());
   const finalScore = blendScore(benchmarkScore, best.id, category, { contextScore, communityScore }) + contextBoost;
 
   return c.json({
