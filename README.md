@@ -1,101 +1,331 @@
-# Smart Spawn
+<p align="center">
+  <img src="https://img.shields.io/badge/bun-%23000000.svg?style=for-the-badge&logo=bun&logoColor=white" alt="Bun">
+  <img src="https://img.shields.io/badge/hono-%23E36002.svg?style=for-the-badge&logo=hono&logoColor=white" alt="Hono">
+  <img src="https://img.shields.io/badge/sqlite-%2307405e.svg?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite">
+  <img src="https://img.shields.io/badge/OpenRouter-6366F1?style=for-the-badge" alt="OpenRouter">
+  <img src="https://img.shields.io/badge/OpenClaw-FF6B35?style=for-the-badge" alt="OpenClaw">
+</p>
 
-Model Intelligence API that pulls LLM data from multiple sources, enriches with benchmarks and scores, and serves smart recommendations.
+<h1 align="center">⚡ Smart Spawn</h1>
 
-## What it does
+<p align="center">
+  <strong>Intelligent AI model routing for <a href="https://github.com/openclaw/openclaw">OpenClaw</a></strong><br>
+  Pick the best model for any task. Automatically. With benchmarks.
+</p>
 
-Aggregates model data from 4 sources into one API:
+<p align="center">
+  <code>342 models</code> · <code>5 data sources</code> · <code>5 spawn modes</code> · <code>150+ role blocks</code>
+</p>
 
-| Source | Models | Matched | Data |
-|--------|--------|---------|------|
-| OpenRouter | 340 | 340 (base catalog) | Pricing, context length, capabilities |
-| Artificial Analysis | 398 | 162 | Intelligence/coding/math indices, speed, latency |
-| HF Open LLM Leaderboard | ~4500 | ~30 | IFEval, BBH, MMLU-Pro, GPQA (open models only) |
-| LMArena (Chatbot Arena) | 290 | 76 | Arena ELO scores (human preference) |
+---
 
-179 models end up with benchmark data. Every model gets scored across 7 categories: general, coding, reasoning, creative, vision, research, fast-cheap.
+## What is this?
 
-## Quick start
+Smart Spawn is a two-part system:
+
+1. **Model Intelligence API** — indexes 342+ models from OpenRouter, enriches them with real benchmark data from 5 sources, and serves smart recommendations
+2. **OpenClaw Plugin** — registers a `smart_spawn` tool that auto-picks the optimal model, composes expert role instructions, and spawns sub-agents
+
+The result: your AI assistant picks the right model for the job and makes cheap models perform like specialists with targeted role prompts.
+
+```
+You: "build me a react dashboard"
+
+Smart Spawn:
+  → Task type: frontend
+  → Budget: medium ($0-5/M tokens)
+  → Best model: google/gemini-2.5-pro (score: 0.89, $1.25/M)
+  → Role: frontend-engineer + react + tailwind + full-implementation
+  → Spawns sub-agent with expert prompt (~200 words)
+  → 98% cheaper than using Claude Opus for everything
+```
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                      OpenClaw Agent                      │
+│                                                         │
+│  User message → smart_spawn tool → JSON response        │
+│                      │                                   │
+│                      ▼                                   │
+│              sessions_spawn()                            │
+│           (with optimal model + role prompt)              │
+└──────────────────────┬──────────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────────────────┐
+│              Model Intelligence API                       │
+│                                                          │
+│  ┌─────────┐  ┌──────────┐  ┌─────────┐  ┌───────────┐ │
+│  │OpenRouter│  │Artificial│  │HuggingFace│ │  LMArena  │ │
+│  │  Models  │  │ Analysis │  │Leaderboard│ │  Rankings │ │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘ └─────┬─────┘ │
+│       │              │              │              │      │
+│       ▼              ▼              ▼              ▼      │
+│  ┌──────────────────────────────────────────────────┐    │
+│  │           Unified Model Index (SQLite)            │    │
+│  │     342 models · Z-score normalized scores        │    │
+│  │         Auto-refresh every 6 hours                │    │
+│  └──────────────────────┬───────────────────────────┘    │
+│                         │                                │
+│       ┌─────────────────┼─────────────────┐              │
+│       ▼                 ▼                 ▼              │
+│  ┌─────────┐     ┌───────────┐     ┌──────────┐        │
+│  │  /pick  │     │/recommend │     │  /roles   │        │
+│  │Best model│    │  Top N    │     │ Compose   │        │
+│  │for task  │    │by category│     │  prompt   │        │
+│  └─────────┘    └───────────┘     └──────────┘         │
+└──────────────────────────────────────────────────────────┘
+```
+
+## Spawn Modes
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   SINGLE     │     │  COLLECTIVE  │     │   CASCADE    │
+│              │     │              │     │              │
+│  One model,  │     │  N models,   │     │ Cheap first, │
+│  best pick   │     │  merge best  │     │ escalate if  │
+│              │     │  answers     │     │ quality low  │
+└──────────────┘     └──────────────┘     └──────────────┘
+
+┌──────────────┐     ┌──────────────┐
+│    PLAN      │     │    SWARM     │
+│              │     │              │
+│  Sequential  │     │  Parallel    │
+│  steps with  │     │  subtasks    │
+│  context     │     │  with DAG    │
+│  passing     │     │  deps        │
+└──────────────┘     └──────────────┘
+```
+
+## Data Sources
+
+| Source | What it provides | Models matched |
+|--------|-----------------|----------------|
+| **OpenRouter** | Pricing, context length, capabilities | 342 (base) |
+| **Artificial Analysis** | Speed, quality, latency benchmarks | ~163 |
+| **LMArena** | Human preference ELO ratings | ~78 |
+| **LiveBench** | Contamination-free benchmark scores | ~70 |
+| **HuggingFace Open LLM** | Academic benchmark scores | ~30 |
+
+All scores are **Z-score normalized** for fair cross-source comparison.
+
+## Role Composition System
+
+Smart Spawn includes a composable role system with **150+ building blocks** that the agent assembles into expert prompts:
+
+```
+┌─────────────────────────────────────────────────┐
+│              Role Prompt (~200 words)             │
+│                                                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
+│  │ PERSONA  │  │  STACK   │  │  DOMAIN  │      │
+│  │          │  │  (1-4)   │  │          │      │
+│  │ frontend │  │ react    │  │ saas     │      │
+│  │ engineer │  │ tailwind │  │          │      │
+│  │          │  │ nextjs   │  │          │      │
+│  └──────────┘  └──────────┘  └──────────┘      │
+│                                                  │
+│  ┌──────────┐  ┌──────────────────────┐         │
+│  │  FORMAT  │  │     GUARDRAILS       │         │
+│  │          │  │                      │         │
+│  │ full-    │  │ code · production    │         │
+│  │ implemen │  │ (auto-applied)       │         │
+│  │ tation   │  │                      │         │
+│  └──────────┘  └──────────────────────┘         │
+└─────────────────────────────────────────────────┘
+```
+
+**38 personas** · **82+ tech stacks** · **15 domains** · **17 formats** · **6 guardrails**
+
+The agent picks relevant blocks. The API just assembles. No keyword detection — the LLM already understands the task.
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/pick` | `GET` | Best model for a task type + budget |
+| `/recommend` | `GET` | Top N models by category |
+| `/models` | `GET` | Full model index with benchmarks |
+| `/compare` | `GET` | Side-by-side model comparison |
+| `/roles/compose` | `POST` | Assemble role prompt from blocks |
+| `/roles/blocks` | `GET` | List all available block IDs |
+| `/decompose` | `POST` | Split task into subtasks |
+| `/swarm` | `POST` | Build parallel execution DAG |
+| `/status` | `GET` | API health + model count |
+| `/refresh` | `POST` | Force data refresh |
+| `/spawn-log` | `POST/GET` | Log and query spawn history |
+| `/community` | `GET` | Aggregated community stats |
+
+### Quick Examples
 
 ```bash
+# Best model for coding on a budget
+curl "localhost:3000/pick?task=coding&budget=low"
+
+# Top 5 reasoning models
+curl "localhost:3000/recommend?category=reasoning&limit=5"
+
+# Compose a role prompt
+curl -X POST "localhost:3000/roles/compose" \
+  -H "Content-Type: application/json" \
+  -d '{"persona":"frontend-engineer","stack":["react","tailwind"],"format":"full-implementation"}'
+
+# API status
+curl "localhost:3000/status"
+```
+
+## Installation
+
+### 1. Run the API
+
+```bash
+git clone https://github.com/borbbot/smart-spawn.git
+cd smart-spawn
 bun install
-ARTIFICIAL_ANALYSIS_API_KEY=your_key bun run dev
+bun run dev
 ```
 
-Server starts on `http://localhost:3000`. First refresh takes ~30s (pulls all sources).
+The API starts on port 3000 (or `$PORT`). It auto-fetches model data on startup and refreshes every 6 hours.
 
-## API
+**Optional:** Set `ARTIFICIAL_ANALYSIS_API_KEY` for richer benchmark data (~163 more models with quality/speed scores).
 
-```
-GET /models                    Full catalog with filters (?category=coding&tier=premium&limit=10)
-GET /recommend?task=coding     Smart recommendations (?budget=medium&count=3)
-GET /pick?task=coding          Single best model ID for a task
-GET /status                    Health check, source status, model counts
-POST /refresh                  Trigger manual data refresh
-```
+### 2. Install the OpenClaw Plugin
 
-### Example: recommend for coding
+Copy the `smart-spawn/` directory into your OpenClaw plugins folder:
 
 ```bash
-curl "http://localhost:3000/recommend?task=coding&count=3&budget=medium"
+cp -r smart-spawn/ ~/.openclaw/plugins/smart-spawn/
 ```
+
+Add to your `openclaw.json`:
 
 ```json
 {
-  "data": [
-    {
-      "model": { "id": "google/gemini-2.5-pro-preview-05-06", "scores": { "coding": 77 }, ... },
-      "reason": "Strong coding model at medium budget",
-      "confidence": 0.92
-    },
-    ...
-  ]
-}
-```
-
-### Example: pick best model
-
-```bash
-curl "http://localhost:3000/pick?task=creative+writing&budget=high"
-```
-
-```json
-{
-  "data": {
-    "id": "google/gemini-2.5-pro",
-    "reason": "Top creative model at high budget"
+  "plugins": {
+    "smart-spawn": {
+      "apiUrl": "http://localhost:3000",
+      "defaultBudget": "medium",
+      "defaultMode": "single"
+    }
   }
 }
 ```
 
-## How scoring works
+Restart OpenClaw. The `smart_spawn` tool and companion skill are now available.
 
-Each model gets a 0-100 score per category:
+### 3. Deploy the API (Railway)
 
-- **General:** AA intelligence index > Arena ELO > HF MMLU-Pro > tier baseline
-- **Coding:** AA coding index > LiveCodeBench > general * 0.85
-- **Reasoning:** AA intelligence index > Arena ELO > baseline (boosted for reasoning-capable models)
-- **Creative:** Arena ELO (human preference) > general for premium models
-- **Vision:** Same as general for vision-capable models
-- **Research:** General + context length bonus (up to +20 for 1M+ context)
-- **Fast-cheap:** Inverse of price ($0 = 100, $1 = 50)
+```bash
+# Railway CLI
+railway init
+railway up
 
-Cost efficiency = score / price ratio per category.
+# Add a volume for SQLite persistence (mount: /app/data)
+# Set ARTIFICIAL_ANALYSIS_API_KEY in Railway variables
+```
 
-## Model name mapping
+Or use the included `Dockerfile`:
 
-The hardest part. Every source uses different names for the same model. A hand-maintained `src/data/aliases.yaml` maps ~200 models across ~632 name variants. The pipeline also does aggressive normalization: dash-to-space, strip date/version suffixes, ChatGPT→GPT mapping, etc.
+```bash
+docker build -t smart-spawn .
+docker run -p 3000:3000 -v smart-spawn-data:/app/data smart-spawn
+```
 
-## Stack
+## Configuration
 
-- **Runtime:** Bun
-- **Framework:** Hono
-- **Language:** TypeScript
-- **Storage:** JSON file cache (no database)
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `apiUrl` | string | `http://localhost:3000` | Model Intelligence API URL |
+| `defaultBudget` | string | `medium` | Budget tier: `low` ($0-1/M), `medium` ($0-5/M), `high` ($2-20/M), `any` |
+| `defaultMode` | string | `single` | Spawn mode: `single`, `collective`, `cascade`, `plan`, `swarm` |
+| `collectiveCount` | number | `3` | Models for collective mode (2-5) |
+| `telemetryOptIn` | boolean | `false` | Share anonymous spawn stats |
 
-## Environment variables
+## Budget Tiers
+
+| Tier | Price Range | Use Case |
+|------|------------|----------|
+| **low** | $0 - $1/M tokens | Quick tasks, bulk processing |
+| **medium** | $0 - $5/M tokens | Most tasks, good quality/cost balance |
+| **high** | $2 - $20/M tokens | Complex reasoning, architecture |
+| **any** | Unlimited | Best model regardless of cost |
+
+## How Scoring Works
 
 ```
-ARTIFICIAL_ANALYSIS_API_KEY=   # Required for Artificial Analysis source
-PORT=3000                       # Server port (default 3000)
+Final Score = weighted average of:
+  ├── OpenRouter quality    (if available)
+  ├── Artificial Analysis   (if available)
+  ├── LMArena ELO          (if available)
+  ├── LiveBench score       (if available)
+  └── HuggingFace score     (if available)
+
+All normalized to Z-scores for fair comparison.
+Task-type multipliers boost relevant benchmarks:
+  coding  → weight coding/reasoning benchmarks higher
+  creative → weight language/creative benchmarks higher
+  math    → weight math benchmarks higher
 ```
+
+## Project Structure
+
+```
+smart-spawn/
+├── src/
+│   ├── index.ts              # Hono server entrypoint
+│   ├── enrichment/
+│   │   └── pipeline.ts       # Data fetching + enrichment pipeline
+│   ├── routes/
+│   │   ├── pick.ts           # /pick — best model selection
+│   │   ├── recommend.ts      # /recommend — top N models
+│   │   ├── models.ts         # /models — full index
+│   │   ├── roles.ts          # /roles — prompt composition
+│   │   ├── decompose.ts      # /decompose — task splitting
+│   │   ├── swarm.ts          # /swarm — parallel DAG
+│   │   ├── status.ts         # /status — health check
+│   │   ├── refresh.ts        # /refresh — force update
+│   │   ├── spawn-log.ts      # /spawn-log — history
+│   │   └── community.ts      # /community — shared stats
+│   ├── roles/
+│   │   ├── blocks.ts         # 150+ composable role blocks
+│   │   └── composer.ts       # Block assembly engine
+│   └── types.ts              # Shared types
+├── smart-spawn/              # OpenClaw plugin
+│   ├── index.ts              # Plugin entrypoint (registerTool)
+│   ├── openclaw.plugin.json  # Plugin manifest
+│   ├── package.json
+│   └── skills/
+│       └── smart-spawn/
+│           └── SKILL.md      # Agent instructions
+├── data/                     # SQLite cache (gitignored)
+├── Dockerfile
+├── railway.json
+└── package.json
+```
+
+## Why?
+
+Most AI assistants use one model for everything. That's like using a sledgehammer for every job.
+
+Smart Spawn picks **the right model** based on:
+- What the task actually needs (coding vs writing vs analysis)
+- Real benchmark data (not vibes)
+- Your budget constraints
+- Available models right now
+
+Then it makes that model even better with targeted expert prompts. A $0.10/M model with the right role prompt outperforms a $15/M model running blind.
+
+**Measured results:** 88-98% cost savings with comparable quality using cascade mode.
+
+## License
+
+MIT
+
+---
+
+<p align="center">
+  Built by <a href="https://github.com/borbbot">@borbbot</a> · Powered by <a href="https://openrouter.ai">OpenRouter</a>
+</p>
