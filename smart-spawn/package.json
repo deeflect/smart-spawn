@@ -1,16 +1,25 @@
 {
-  "name": "@borbbot/smart-spawn",
+  "name": "@openclaw/smart-spawn",
   "version": "1.0.0",
-  "description": "OpenClaw plugin for intelligent sub-agent spawning with automatic model selection",
+  "description": "Intelligent sub-agent spawning with automatic model selection for OpenClaw",
   "main": "index.ts",
   "type": "module",
+  "files": [
+    "index.ts",
+    "src/",
+    "skills/",
+    "openclaw.plugin.json"
+  ],
   "openclaw": {
     "extensions": ["./index.ts"]
   },
-  "author": "borb",
+  "author": "deeflect",
   "license": "MIT",
-  "keywords": ["openclaw", "plugin", "llm", "model-selection", "agent"],
-  "peerDependencies": {
-    "typescript": "^5"
-  }
+  "keywords": ["openclaw", "plugin", "llm", "model-selection", "agent", "smart-spawn"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/deeflect/smart-spawn.git",
+    "directory": "smart-spawn"
+  },
+  "homepage": "https://github.com/deeflect/smart-spawn#readme"
 }
