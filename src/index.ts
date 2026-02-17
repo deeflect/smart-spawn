@@ -39,9 +39,10 @@ app.use("*", async (c, next) => {
   const url = new URL(c.req.url);
   const path = url.pathname;
   const isGet = c.req.method === "GET";
-  if (path.startsWith("/refresh") || path.startsWith("/spawn-log")) {
+  const cleanPath = path.replace(/^\/api/, "");
+  if (cleanPath.startsWith("/refresh") || cleanPath.startsWith("/spawn-log")) {
     c.header("Cache-Control", "no-store");
-  } else if (isGet && ["/models", "/pick", "/recommend", "/compare", "/status"].includes(path)) {
+  } else if (isGet && ["/models", "/pick", "/recommend", "/compare", "/status"].includes(cleanPath)) {
     c.header("Cache-Control", "public, max-age=300");
   }
 });
@@ -53,7 +54,33 @@ app.use(
   })
 );
 
-// Routes
+// API routes under /api
+const api = new Hono();
+api.route("/models", modelsRoute);
+api.route("/recommend", recommendRoute);
+api.route("/pick", pickRoute);
+api.route("/status", statusRoute);
+api.route("/compare", compareRoute);
+api.route("/refresh", refreshRoute);
+api.route("/spawn-log", spawnLogRoute);
+api.route("/decompose", decomposeRoute);
+api.route("/swarm", swarmRoute);
+api.route("/community", communityRoute);
+api.route("/roles", rolesRoute);
+
+api.get("/", (c) =>
+  c.json({
+    data: {
+      name: "Model Intelligence API",
+      version: "1.0.0",
+      endpoints: ["/api/models", "/api/recommend", "/api/pick", "/api/compare", "/api/decompose", "/api/swarm", "/api/community", "/api/status", "/api/refresh", "/api/spawn-log"],
+    },
+  })
+);
+
+app.route("/api", api);
+
+// Legacy: also mount at root for backwards compat
 app.route("/models", modelsRoute);
 app.route("/recommend", recommendRoute);
 app.route("/pick", pickRoute);
@@ -66,13 +93,14 @@ app.route("/swarm", swarmRoute);
 app.route("/community", communityRoute);
 app.route("/roles", rolesRoute);
 
-// Root
+// Root — landing page will go here eventually
 app.get("/", (c) =>
   c.json({
     data: {
-      name: "Model Intelligence API",
+      name: "Smart Spawn",
       version: "1.0.0",
-      endpoints: ["/models", "/recommend", "/pick", "/compare", "/decompose", "/swarm", "/community", "/status", "/refresh", "/spawn-log"],
+      api: "/api",
+      docs: "https://github.com/deeflect/smart-spawn",
     },
   })
 );

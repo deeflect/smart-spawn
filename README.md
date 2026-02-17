@@ -29,7 +29,7 @@ openclaw gateway restart
 
 ```json
 {
-  "apiUrl": "https://ss.deeflect.com",
+  "apiUrl": "https://ss.deeflect.com/api",
   "defaultBudget": "medium",
   "defaultMode": "single"
 }
@@ -37,7 +37,7 @@ openclaw gateway restart
 
 | Setting | Default | Options |
 |---------|---------|---------|
-| `apiUrl` | `https://ss.deeflect.com` | Your own API URL if self-hosting |
+| `apiUrl` | `https://ss.deeflect.com/api` | Your own API URL if self-hosting |
 | `defaultBudget` | `medium` | `low`, `medium`, `high`, `any` |
 | `defaultMode` | `single` | `single`, `collective`, `cascade`, `swarm` |
 
@@ -132,14 +132,14 @@ Every model is automatically classified with:
 
 ## API Reference
 
-Base URL: `https://ss.deeflect.com`
+Base URL: `https://ss.deeflect.com/api`
 
 ### GET /pick
 
 Pick the single best model for a task.
 
 ```bash
-curl "https://ss.deeflect.com/pick?task=build+a+react+app&budget=medium"
+curl "https://ss.deeflect.com/api/pick?task=build+a+react+app&budget=medium"
 ```
 
 | Param | Required | Description |
@@ -167,7 +167,7 @@ curl "https://ss.deeflect.com/pick?task=build+a+react+app&budget=medium"
 Get multiple model recommendations with provider diversity.
 
 ```bash
-curl "https://ss.deeflect.com/recommend?task=coding&budget=low&count=3"
+curl "https://ss.deeflect.com/api/recommend?task=coding&budget=low&count=3"
 ```
 
 | Param | Required | Description |
@@ -185,7 +185,7 @@ curl "https://ss.deeflect.com/recommend?task=coding&budget=low&count=3"
 Side-by-side model comparison.
 
 ```bash
-curl "https://ss.deeflect.com/compare?models=anthropic/claude-opus-4.6,openai/gpt-5.2"
+curl "https://ss.deeflect.com/api/compare?models=anthropic/claude-opus-4.6,openai/gpt-5.2"
 ```
 
 | Param | Required | Description |
@@ -197,7 +197,7 @@ curl "https://ss.deeflect.com/compare?models=anthropic/claude-opus-4.6,openai/gp
 Browse the full model catalog.
 
 ```bash
-curl "https://ss.deeflect.com/models?category=coding&sort=score&limit=10"
+curl "https://ss.deeflect.com/api/models?category=coding&sort=score&limit=10"
 ```
 
 | Param | Required | Description |
@@ -212,7 +212,7 @@ curl "https://ss.deeflect.com/models?category=coding&sort=score&limit=10"
 Break a complex task into sequential steps with optimal model per step.
 
 ```bash
-curl -X POST "https://ss.deeflect.com/decompose" \
+curl -X POST "https://ss.deeflect.com/api/decompose" \
   -H "Content-Type: application/json" \
   -d '{"task": "Build and deploy a SaaS landing page", "budget": "medium"}'
 ```
@@ -222,7 +222,7 @@ curl -X POST "https://ss.deeflect.com/decompose" \
 Decompose a task into a parallel DAG of sub-tasks with dependency tracking.
 
 ```bash
-curl -X POST "https://ss.deeflect.com/swarm" \
+curl -X POST "https://ss.deeflect.com/api/swarm" \
   -H "Content-Type: application/json" \
   -d '{"task": "Research competitors and build a pitch deck", "budget": "low"}'
 ```
@@ -232,7 +232,7 @@ curl -X POST "https://ss.deeflect.com/swarm" \
 API health and data freshness.
 
 ```bash
-curl "https://ss.deeflect.com/status"
+curl "https://ss.deeflect.com/api/status"
 ```
 
 ### POST /refresh
@@ -240,7 +240,7 @@ curl "https://ss.deeflect.com/status"
 Force a data refresh (pulls from all 5 sources). Protected by API key if `REFRESH_API_KEY` is set.
 
 ```bash
-curl -X POST "https://ss.deeflect.com/refresh" \
+curl -X POST "https://ss.deeflect.com/api/refresh" \
   -H "Authorization: Bearer YOUR_KEY"
 ```
 

@@ -38,7 +38,7 @@ Optional — add to your OpenClaw config under `plugins.entries.smart-spawn.conf
 
 ```json
 {
-  "apiUrl": "https://ss.deeflect.com",
+  "apiUrl": "https://ss.deeflect.com/api",
   "defaultBudget": "medium",
   "defaultMode": "single"
 }
@@ -46,7 +46,7 @@ Optional — add to your OpenClaw config under `plugins.entries.smart-spawn.conf
 
 | Setting | Default | Options |
 |---------|---------|---------|
-| `apiUrl` | `https://ss.deeflect.com` | Your own API URL if self-hosting |
+| `apiUrl` | `https://ss.deeflect.com/api` | Your own API URL if self-hosting |
 | `defaultBudget` | `medium` | `low`, `medium`, `high`, `any` |
 | `defaultMode` | `single` | `single`, `collective`, `cascade`, `swarm` |
 | `collectiveCount` | `3` | Number of models for collective mode (2-5) |
