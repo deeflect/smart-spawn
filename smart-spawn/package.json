@@ -1,5 +1,5 @@
 {
-  "name": "@openclaw/smart-spawn",
+  "name": "@deeflect/smart-spawn",
   "version": "1.0.0",
   "description": "Intelligent sub-agent spawning with automatic model selection for OpenClaw",
   "main": "index.ts",
