@@ -1,234 +1,357 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/bun-%23000000.svg?style=for-the-badge&logo=bun&logoColor=white" alt="Bun">
-  <img src="https://img.shields.io/badge/hono-%23E36002.svg?style=for-the-badge&logo=hono&logoColor=white" alt="Hono">
-  <img src="https://img.shields.io/badge/sqlite-%2307405e.svg?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite">
-</p>
+# Smart Spawn
 
-<h1 align="center">⚡ Smart Spawn</h1>
+Intelligent model routing for [OpenClaw](https://github.com/openclaw/openclaw). Automatically picks the best AI model for any task based on real benchmark data from 5 sources.
 
-<p align="center">
-  <strong>Model Intelligence API for smart AI model routing</strong><br>
-  Benchmarks + pricing + capabilities unified into a single, queryable index.
-</p>
+Instead of hardcoding models or guessing, Smart Spawn analyzes what you're doing and routes to the optimal model for the job — factoring in task type, budget, benchmarks, speed, and your own feedback history.
 
----
+## Quick Start (OpenClaw Plugin)
 
-## Overview
+You don't need to host anything. The public API runs at `ss.deeflect.com`.
 
-Smart Spawn ingests model catalogs, benchmark data, and pricing metadata, then serves a clean API for selecting the best models for a task. The server refreshes its data every 6 hours and caches popular endpoints for fast responses.
-
-### Highlights
-
-- Unified model index with pricing, context length, capabilities, and benchmark scores
-- Smart recommendation endpoints (`/pick`, `/recommend`, `/compare`)
-- Task decomposition helpers (`/decompose`, `/swarm`)
-- Role prompt composition (`/roles/compose`)
-- SQLite-backed spawn logging & feedback APIs
-
----
-
-## Quickstart
+**Install the plugin:**
 
 ```bash
-bun install
-bun run dev
+# Copy plugin into your OpenClaw extensions directory
+mkdir -p ~/.openclaw/extensions/smart-spawn
+curl -sL https://github.com/deeflect/smart-spawn/archive/main.tar.gz | \
+  tar xz --strip-components=2 -C ~/.openclaw/extensions/smart-spawn smart-spawn-main/smart-spawn/
+
+# Restart OpenClaw
+openclaw gateway restart
 ```
 
-The API listens on port `3000` (or `$PORT`). On startup it loads cached data and kicks off a background refresh.
+**Use it in conversation:**
 
-### Environment variables
+> "Research the latest developments in WebGPU"
+>
+> Smart Spawn picks Gemini 2.5 Flash (fast, free, great context) and spawns a research sub-agent on it.
 
-Create a `.env` (see `.env.example`):
+> "Build me a React dashboard with auth"
+>
+> Smart Spawn picks the best coding model in your budget tier and spawns a coder sub-agent.
 
-- `PORT` — server port (default: `3000`)
-- `REFRESH_API_KEY` — optional Bearer token to protect `POST /refresh`
-- `ARTIFICIAL_ANALYSIS_API_KEY` — optional, enables richer benchmark data
+**Plugin config** (optional — add to your OpenClaw config under `extensions.smart-spawn`):
+
+```json
+{
+  "apiUrl": "https://ss.deeflect.com",
+  "defaultBudget": "medium",
+  "defaultMode": "single"
+}
+```
+
+| Setting | Default | Options |
+|---------|---------|---------|
+| `apiUrl` | `https://ss.deeflect.com` | Your own API URL if self-hosting |
+| `defaultBudget` | `medium` | `low`, `medium`, `high`, `any` |
+| `defaultMode` | `single` | `single`, `collective`, `cascade`, `swarm` |
+
+### Spawn Modes
+
+- **Single** — Pick one best model, spawn one agent
+- **Collective** — Pick N diverse models, spawn parallel agents, merge results
+- **Cascade** — Start cheap, escalate to premium if quality is insufficient
+- **Swarm** — Decompose complex tasks into a DAG of sub-tasks with optimal model per step
 
 ---
 
-## API
+## How It Works
 
-### `GET /models`
-List models with optional filtering/sorting.
-
-**Query params**
-- `category` — one of known categories (e.g. `coding`, `reasoning`, `research`)
-- `tier` — `budget` | `standard` | `premium`
-- `limit` — 1–500 (default: 50)
-- `sort` — `score` | `cost` | `efficiency` | `<category>`
-
-### `GET /pick`
-Pick the best single model for a task.
-
-**Query params**
-- `task` (required) — free text task or category name
-- `budget` — `low` | `medium` | `high` | `any` (default: `medium`)
-- `exclude` — comma-separated model IDs
-- `context` — comma-separated context tags
-
-### `GET /recommend`
-Return top N models for a task/category with optional filters.
-
-**Query params**
-- `task` (required) — free text task **or** category name
-- `category` — accepted as an alias for `task`
-- `budget` — `low` | `medium` | `high` | `any` (default: `medium`)
-- `count` — 1–5 (default: 1)
-- `exclude` — comma-separated model IDs
-- `require` — comma-separated capabilities (`vision`, `functionCalling`, `json`, `reasoning`)
-- `minContext` — minimum context length
-- `context` — comma-separated context tags
-
-### `GET /compare`
-Compare multiple models side-by-side.
-
-**Query params**
-- `models` (required) — comma-separated model IDs (2–5)
-
-### `GET /status`
-Health and data statistics.
-
-### `POST /refresh`
-Trigger a background data refresh.
-
-- If `REFRESH_API_KEY` is set, include header: `Authorization: Bearer <key>`
-
-### `POST /decompose`
-Split a task into sequential subtasks.
-
-**Body**
-```json
-{
-  "task": "string",
-  "budget": "low|medium|high|any",
-  "context": "optional context tags"
-}
+```
+┌─────────────────────────────────────────────────────┐
+│                  Data Sources (5)                     │
+│                                                       │
+│  OpenRouter ─── model catalog, pricing, capabilities  │
+│  Artificial Analysis ─── intelligence/coding/math idx │
+│  HuggingFace Open LLM Leaderboard ─── MMLU, BBH, etc│
+│  LMArena (Chatbot Arena) ─── ELO from human prefs    │
+│  LiveBench ─── contamination-free coding/reasoning    │
+└──────────────────────┬──────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────────────┐
+│              Enrichment Pipeline                      │
+│                                                       │
+│  1. Pull raw data from all 5 sources                  │
+│  2. Alias matching (map model names across sources)   │
+│  3. Z-score normalization per benchmark               │
+│  4. Category scoring (coding/reasoning/creative/...)  │
+│  5. Cost-efficiency calculation                       │
+│  6. Tier + capability classification                  │
+│  7. Blend: benchmarks + personal + community scores   │
+│                                                       │
+│  Refreshes every 6 hours automatically                │
+└──────────────────────┬──────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────────────┐
+│              SQLite Cache → API → Plugin → Agent      │
+└──────────────────────────────────────────────────────┘
 ```
 
-### `POST /swarm`
-Build a DAG for parallel execution of subtasks.
+### Scoring System
 
-**Body**
-```json
-{
-  "task": "string",
-  "budget": "low|medium|high|any",
-  "context": "optional context tags",
-  "maxParallel": 1
-}
-```
+**Z-score normalization** — Each benchmark source uses different scales. An "intelligence index" of 65 from Artificial Analysis means something completely different than an Arena ELO of 1350. We normalize everything:
 
-### `GET /community/scores`
-Community model scores.
+1. Compute mean and stddev for each benchmark across all models
+2. Convert to z-scores: `(value - mean) / stddev`
+3. Map to 0-100 scale: z=-2.5→0, z=0→50, z=+1→70, z=+2→90
 
-**Query params**
-- `category` — optional category filter
-- `minRatings` — minimum ratings (default: 10)
+This means a model that's 2σ above average on LiveCodeBench gets the same score as one 2σ above average on Arena ELO — both are "equally exceptional" on their metric.
 
-### `POST /community/report`
-Anonymous community rating.
+**Category scores** — Models get scored per category (coding, reasoning, creative, vision, research, fast-cheap, general) using weighted combinations of relevant benchmarks:
 
-**Body**
-```json
-{
-  "model": "model-id",
-  "category": "coding",
-  "rating": 1,
-  "instanceId": "anonymous-instance-id"
-}
-```
+| Category | Key Benchmarks |
+|----------|---------------|
+| Coding | LiveCodeBench, Agentic Coding, Coding Index |
+| Reasoning | GPQA, Arena ELO, MATH-500, BBH |
+| Creative | Arena ELO (human preference), LiveBench Language |
+| Vision | Intelligence Index (vision-capable models) |
+| Research | Arena ELO, context length bonus |
+| Fast-cheap | Speed (tokens/sec), low pricing |
 
-### `GET /spawn-log/scores`
-Personal model scores.
+**Score blending** — Final score = weighted mix of:
+- Benchmark score (primary)
+- Personal feedback (your own ratings from past spawns)
+- Community scores (anonymous aggregated ratings from other instances)
+- Context boost (task-specific signals like "needs vision" or "long context")
 
-**Query params**
-- `category` — optional category filter
-- `minSamples` — minimum samples (default: 3)
+### Budget Tiers
 
-### `GET /spawn-log/stats`
-Spawn statistics for cost dashboards.
+| Budget | Price Range (per 1M input tokens) | Examples |
+|--------|----------------------------------|----------|
+| `low` | $0 – $1 | DeepSeek, Kimi K2.5, Gemini Flash |
+| `medium` | $0 – $5 | Claude Sonnet, GPT-4o, Gemini Pro |
+| `high` | $2 – $20 | Claude Opus, GPT-5, o3 |
+| `any` | No limit | Best available regardless of cost |
 
-**Query params**
-- `days` — 1–365 (default: 7)
+### Model Classification
 
-### `POST /spawn-log`
-Log a spawn event.
-
-**Body**
-```json
-{
-  "model": "model-id",
-  "category": "coding",
-  "budget": "medium",
-  "mode": "single",
-  "role": "primary",
-  "source": "api",
-  "context": "optional context tags"
-}
-```
-
-### `POST /spawn-log/outcome`
-Report personal outcome for a model+category.
-
-**Body**
-```json
-{
-  "model": "model-id",
-  "category": "coding",
-  "rating": 1,
-  "context": "optional context tags"
-}
-```
-
-### `GET /roles/blocks`
-List available role blocks.
-
-### `POST /roles/compose`
-Compose a role prompt from explicit blocks.
-
-**Body**
-```json
-{
-  "task": "build a react dashboard",
-  "persona": "frontend-engineer",
-  "stack": ["react", "tailwind"],
-  "domain": "saas",
-  "format": "full-implementation",
-  "guardrails": ["code", "security"]
-}
-```
+Every model is automatically classified with:
+- **Tier**: premium / standard / budget (based on provider + pricing)
+- **Categories**: which task types it's good at (derived from benchmarks + capabilities)
+- **Tags**: specific traits like "fast", "vision", "reasoning", "large-context"
+- **Cost efficiency**: quality-per-dollar ratio per category
 
 ---
 
-## Caching, Rate Limits, Security
+## API Reference
 
-- **Data refresh cycle:** background refresh every 6 hours
-- **Response caching:** in-memory cache (60s TTL) for `/models`, `/pick`, `/recommend`, `/compare`, `/status`
-- **Cache-Control headers:** public `max-age=300` for read endpoints; `no-store` for `/refresh` and `/spawn-log`
-- **Rate limiting:** 200 requests/minute/IP (global), `/refresh` limited to 2/hour/IP
-- **Security headers:** `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`
+Base URL: `https://ss.deeflect.com`
 
----
+### GET /pick
 
-## Deployment
+Pick the single best model for a task.
 
-### Bun (local)
 ```bash
+curl "https://ss.deeflect.com/pick?task=build+a+react+app&budget=medium"
+```
+
+| Param | Required | Description |
+|-------|----------|-------------|
+| `task` | Yes | Task description or category name |
+| `budget` | No | `low`, `medium`, `high`, `any` (default: `medium`) |
+| `exclude` | No | Comma-separated model IDs to skip |
+| `context` | No | Context tags (e.g. `vision,long-context`) |
+
+```json
+{
+  "data": {
+    "id": "anthropic/claude-opus-4.6",
+    "name": "Claude Opus 4.6",
+    "score": 86,
+    "pricing": { "prompt": 5, "completion": 25 },
+    "budget": "medium",
+    "reason": "Best general model at medium budget ($0-5/M) — score: 86"
+  }
+}
+```
+
+### GET /recommend
+
+Get multiple model recommendations with provider diversity.
+
+```bash
+curl "https://ss.deeflect.com/recommend?task=coding&budget=low&count=3"
+```
+
+| Param | Required | Description |
+|-------|----------|-------------|
+| `task` or `category` | Yes | Task description or category name |
+| `budget` | No | Budget tier (default: `medium`) |
+| `count` | No | Number of recommendations, 1-5 (default: `1`) |
+| `exclude` | No | Comma-separated model IDs to skip |
+| `require` | No | Required capabilities: `vision`, `functionCalling`, `json`, `reasoning` |
+| `minContext` | No | Minimum context window length |
+| `context` | No | Context tags for routing boost |
+
+### GET /compare
+
+Side-by-side model comparison.
+
+```bash
+curl "https://ss.deeflect.com/compare?models=anthropic/claude-opus-4.6,openai/gpt-5.2"
+```
+
+| Param | Required | Description |
+|-------|----------|-------------|
+| `models` | Yes | Comma-separated OpenRouter model IDs |
+
+### GET /models
+
+Browse the full model catalog.
+
+```bash
+curl "https://ss.deeflect.com/models?category=coding&sort=score&limit=10"
+```
+
+| Param | Required | Description |
+|-------|----------|-------------|
+| `category` | No | Filter by category |
+| `tier` | No | Filter by tier: `premium`, `standard`, `budget` |
+| `sort` | No | `score` (default), `cost`, `efficiency`, or any category name |
+| `limit` | No | Results to return, 1-500 (default: `50`) |
+
+### POST /decompose
+
+Break a complex task into sequential steps with optimal model per step.
+
+```bash
+curl -X POST "https://ss.deeflect.com/decompose" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "Build and deploy a SaaS landing page", "budget": "medium"}'
+```
+
+### POST /swarm
+
+Decompose a task into a parallel DAG of sub-tasks with dependency tracking.
+
+```bash
+curl -X POST "https://ss.deeflect.com/swarm" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "Research competitors and build a pitch deck", "budget": "low"}'
+```
+
+### GET /status
+
+API health and data freshness.
+
+```bash
+curl "https://ss.deeflect.com/status"
+```
+
+### POST /refresh
+
+Force a data refresh (pulls from all 5 sources). Protected by API key if `REFRESH_API_KEY` is set.
+
+```bash
+curl -X POST "https://ss.deeflect.com/refresh" \
+  -H "Authorization: Bearer YOUR_KEY"
+```
+
+### POST /spawn-log
+
+Log a spawn event (used by the plugin for feedback/learning).
+
+### POST /spawn-log/outcome
+
+Report task outcome rating (1-5) for the learning loop.
+
+### POST /community/report
+
+Anonymous community outcome report for shared intelligence.
+
+### POST /roles/compose
+
+Compose a role-enriched prompt from persona/stack/domain blocks.
+
+---
+
+## Self-Hosting
+
+The API is open source. Run your own if you want full control.
+
+### Local Development
+
+```bash
+git clone https://github.com/deeflect/smart-spawn.git
+cd smart-spawn
 bun install
-bun run dev
+bun run dev    # starts on http://localhost:3000
 ```
 
 ### Docker
+
 ```bash
 docker build -t smart-spawn .
-docker run -p 8080:8080 --env-file .env smart-spawn
+docker run -p 3000:3000 -v smart-spawn-data:/app/data smart-spawn
 ```
 
 ### Railway
-This repo includes a `railway.json` configured for Dockerfile deploys. Create a new Railway service and point it at this repo.
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template)
+
+The repo includes `railway.json` and `Dockerfile`. Just connect your repo and deploy.
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `PORT` | No | Server port (default: `3000`) |
+| `REFRESH_API_KEY` | No | Protects `/refresh` endpoint. If set, requires `Authorization: Bearer <key>` |
+
+### Rate Limits
+
+- **200 requests/min** per IP (all endpoints)
+- **2 requests/hour** per IP on `/refresh`
+- Returns `429 Too Many Requests` with `Retry-After` header
+
+These are generous enough for agent use. If you're hitting limits, self-host.
+
+---
+
+## Architecture
+
+```
+smart-spawn/
+├── src/                        # API server
+│   ├── index.ts                # Hono app, middleware, startup
+│   ├── db.ts                   # SQLite (cache, spawn logs, scores)
+│   ├── types.ts                # All TypeScript types
+│   ├── model-selection.ts      # Score sorting, blending logic
+│   ├── scoring-utils.ts        # Category classification, score helpers
+│   ├── context-signals.ts      # Context tag parsing and boost calculation
+│   ├── task-splitter.ts        # Task decomposition for cascade/swarm
+│   ├── enrichment/
+│   │   ├── pipeline.ts         # Main pipeline: pull → enrich → cache
+│   │   ├── scoring.ts          # Z-score normalization, score computation
+│   │   ├── rules.ts            # Tier classification, category derivation
+│   │   ├── alias-map.ts        # Cross-source model name matching
+│   │   └── sources/            # Data source adapters
+│   │       ├── openrouter.ts   # OpenRouter model catalog
+│   │       ├── artificial.ts   # Artificial Analysis benchmarks
+│   │       ├── hf-leaderboard.ts # HuggingFace Open LLM Leaderboard
+│   │       ├── lmarena.ts      # LMArena / Chatbot Arena ELO
+│   │       └── livebench.ts    # LiveBench scores
+│   ├── routes/                 # API endpoints
+│   ├── roles/                  # Role composition blocks
+│   ├── middleware/              # Rate limiting, response caching
+│   └── utils/                  # Input validation
+├── smart-spawn/                # OpenClaw plugin
+│   ├── index.ts                # Plugin entry point (tool registration)
+│   ├── openclaw.plugin.json    # Plugin manifest
+│   ├── src/api-client.ts       # API client for plugin
+│   └── skills/smart-spawn/     # Companion SKILL.md
+├── data/                       # SQLite database (auto-created)
+├── Dockerfile
+├── railway.json
+└── .env.example
+```
 
 ---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+Built by [@deeflect](https://github.com/deeflect).

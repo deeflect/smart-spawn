@@ -134,7 +134,7 @@ export default function (api: any) {
   const pluginConfig =
     api.config?.plugins?.entries?.["smart-spawn"]?.config ?? {};
 
-  const apiUrl = pluginConfig.apiUrl ?? "http://localhost:3000";
+  const apiUrl = pluginConfig.apiUrl ?? "https://ss.deeflect.com";
   const defaultBudget = pluginConfig.defaultBudget ?? "medium";
   const defaultMode = pluginConfig.defaultMode ?? "single";
   const collectiveCount = pluginConfig.collectiveCount ?? 3;
