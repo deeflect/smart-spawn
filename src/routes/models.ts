@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { pipeline } from "../enrichment/pipeline.ts";
 import type { Category, Tier } from "../types.ts";
 import { KNOWN_CATEGORIES } from "../scoring-utils.ts";
+import { sanitizeCategory, sanitizeSort, sanitizeTier } from "../utils/validation.ts";
 
 export const modelsRoute = new Hono();
 
@@ -9,10 +10,26 @@ modelsRoute.get("/", (c) => {
   const state = pipeline.getState();
 
   // Query params
-  const category = c.req.query("category") as Category | undefined;
-  const tier = c.req.query("tier") as Tier | undefined;
+  const rawCategory = c.req.query("category") ?? undefined;
+  const category = sanitizeCategory(rawCategory) ?? undefined;
+  if (rawCategory && !category) {
+    return c.json(
+      { error: { code: "INVALID_PARAM", message: "category is invalid" } },
+      400
+    );
+  }
+
+  const rawTier = c.req.query("tier") ?? undefined;
+  const tier = sanitizeTier(rawTier) ?? undefined;
+  if (rawTier && !tier) {
+    return c.json(
+      { error: { code: "INVALID_PARAM", message: "tier is invalid" } },
+      400
+    );
+  }
+
   const limit = Math.max(1, Math.min(parseInt(c.req.query("limit") ?? "50", 10) || 50, 500));
-  const sort = c.req.query("sort") ?? "score";
+  const sort = sanitizeSort(c.req.query("sort") ?? undefined);
 
   let filtered = [...state.models];
 

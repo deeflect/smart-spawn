@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { dbReportCommunityOutcome, dbGetCommunityScores } from "../db.ts";
+import { sanitizeCategory } from "../utils/validation.ts";
 
 export const communityRoute = new Hono();
 
@@ -36,7 +37,14 @@ communityRoute.post("/report", async (c) => {
  * GET /community/scores?category=coding&minRatings=10 — Community model scores.
  */
 communityRoute.get("/scores", (c) => {
-  const category = c.req.query("category") || undefined;
+  const rawCategory = c.req.query("category") ?? undefined;
+  const category = sanitizeCategory(rawCategory) ?? undefined;
+  if (rawCategory && !category) {
+    return c.json(
+      { error: { code: "INVALID_PARAM", message: "category is invalid" } },
+      400
+    );
+  }
   const minRatings = Math.max(1, parseInt(c.req.query("minRatings") ?? "10", 10) || 10);
   const scores = dbGetCommunityScores(category, minRatings);
   return c.json({ data: scores });

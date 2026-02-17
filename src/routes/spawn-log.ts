@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { dbLogSpawn, dbGetSpawnStats, dbReportOutcome, dbReportContextOutcome, dbGetPersonalScores } from "../db.ts";
 import { pipeline } from "../enrichment/pipeline.ts";
 import { parseContextTags } from "../context-signals.ts";
+import { sanitizeCategory } from "../utils/validation.ts";
 
 export const spawnLogRoute = new Hono();
 
@@ -70,7 +71,14 @@ spawnLogRoute.post("/outcome", async (c) => {
  * GET /spawn-log/scores?category=coding&minSamples=3 — Personal model scores.
  */
 spawnLogRoute.get("/scores", (c) => {
-  const category = c.req.query("category");
+  const rawCategory = c.req.query("category") ?? undefined;
+  const category = sanitizeCategory(rawCategory) ?? undefined;
+  if (rawCategory && !category) {
+    return c.json(
+      { error: { code: "INVALID_PARAM", message: "category is invalid" } },
+      400
+    );
+  }
   const minSamples = Math.max(1, parseInt(c.req.query("minSamples") ?? "3", 10) || 3);
   const scores = dbGetPersonalScores(category || undefined, minSamples);
   return c.json({ data: scores });

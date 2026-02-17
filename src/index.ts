@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { bodyLimit } from "hono/body-limit";
 import { modelsRoute } from "./routes/models.ts";
 import { recommendRoute } from "./routes/recommend.ts";
 import { pickRoute } from "./routes/pick.ts";
@@ -11,19 +12,53 @@ import { decomposeRoute } from "./routes/decompose.ts";
 import { swarmRoute } from "./routes/swarm.ts";
 import { communityRoute } from "./routes/community.ts";
 import { rolesRoute } from "./routes/roles.ts";
+import { compareRoute } from "./routes/compare.ts";
 import { pipeline } from "./enrichment/pipeline.ts";
+import { rateLimit } from "./middleware/rate-limit.ts";
+import { responseCache } from "./middleware/response-cache.ts";
 
 const app = new Hono();
 
 // Middleware
 app.use("*", logger());
+app.use("*", bodyLimit({ maxSize: 1024 * 1024 }));
+app.use("*", async (c, next) => {
+  const origin = c.req.header("origin") ?? "";
+  if (origin) {
+    console.log(`[cors] origin=${origin}`);
+  }
+  await next();
+});
 app.use("*", cors());
+app.use("*", rateLimit({ windowMs: 60 * 1000, max: 200 }));
+app.use("*", async (c, next) => {
+  await next();
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("X-Frame-Options", "DENY");
+
+  const url = new URL(c.req.url);
+  const path = url.pathname;
+  const isGet = c.req.method === "GET";
+  if (path.startsWith("/refresh") || path.startsWith("/spawn-log")) {
+    c.header("Cache-Control", "no-store");
+  } else if (isGet && ["/models", "/pick", "/recommend", "/compare", "/status"].includes(path)) {
+    c.header("Cache-Control", "public, max-age=300");
+  }
+});
+app.use(
+  "*",
+  responseCache({
+    ttlMs: 60 * 1000,
+    paths: ["/models", "/pick", "/recommend", "/compare", "/status"],
+  })
+);
 
 // Routes
 app.route("/models", modelsRoute);
 app.route("/recommend", recommendRoute);
 app.route("/pick", pickRoute);
 app.route("/status", statusRoute);
+app.route("/compare", compareRoute);
 app.route("/refresh", refreshRoute);
 app.route("/spawn-log", spawnLogRoute);
 app.route("/decompose", decomposeRoute);
@@ -37,7 +72,7 @@ app.get("/", (c) =>
     data: {
       name: "Model Intelligence API",
       version: "1.0.0",
-      endpoints: ["/models", "/recommend", "/pick", "/decompose", "/swarm", "/community", "/status", "/refresh", "/spawn-log"],
+      endpoints: ["/models", "/recommend", "/pick", "/compare", "/decompose", "/swarm", "/community", "/status", "/refresh", "/spawn-log"],
     },
   })
 );

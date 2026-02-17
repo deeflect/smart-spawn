@@ -6,11 +6,12 @@ import { BUDGET_THRESHOLDS } from "../types.ts";
 import { KNOWN_CATEGORIES, blendScore } from "../scoring-utils.ts";
 import { computeContextBoost, parseContextTags } from "../context-signals.ts";
 import { sortModelsByScore } from "../model-selection.ts";
+import { sanitizeBudget, sanitizeModelIdList, sanitizeText } from "../utils/validation.ts";
 
 export const pickRoute = new Hono();
 
 pickRoute.get("/", (c) => {
-  const taskParam = c.req.query("task");
+  const taskParam = sanitizeText(c.req.query("task") ?? undefined, 200);
   if (!taskParam) {
     return c.json(
       { error: { code: "MISSING_PARAM", message: "task parameter is required" } },
@@ -18,14 +19,27 @@ pickRoute.get("/", (c) => {
     );
   }
 
-  const budget = (c.req.query("budget") ?? "medium") as Budget;
+  const rawBudget = c.req.query("budget") ?? undefined;
+  const budget = (sanitizeBudget(rawBudget) ?? "medium") as Budget;
+  if (rawBudget && !sanitizeBudget(rawBudget)) {
+    return c.json(
+      { error: { code: "INVALID_PARAM", message: "budget is invalid" } },
+      400
+    );
+  }
+
   const category: Category = KNOWN_CATEGORIES.includes(taskParam as Category)
     ? (taskParam as Category)
     : "general";
 
   // Exclude specific model IDs (used by cascade to avoid duplicates)
-  const excludeParam = c.req.query("exclude");
-  const excludeIds = excludeParam ? excludeParam.split(",").map((s) => s.trim()) : [];
+  const excludeIds = sanitizeModelIdList(c.req.query("exclude") ?? undefined, 50);
+  if (excludeIds === null) {
+    return c.json(
+      { error: { code: "INVALID_PARAM", message: "exclude contains invalid model IDs" } },
+      400
+    );
+  }
 
   // Context tags for context-aware routing
   const contextTags = parseContextTags(c.req.query("context") ?? undefined);
