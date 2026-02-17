@@ -11,12 +11,7 @@ You don't need to host anything. The public API runs at `ss.deeflect.com`.
 **Install the plugin:**
 
 ```bash
-# Copy plugin into your OpenClaw extensions directory
-mkdir -p ~/.openclaw/extensions/smart-spawn
-curl -sL https://github.com/deeflect/smart-spawn/archive/main.tar.gz | \
-  tar xz --strip-components=2 -C ~/.openclaw/extensions/smart-spawn smart-spawn-main/smart-spawn/
-
-# Restart OpenClaw
+openclaw plugins install @deeflectcom/smart-spawn
 openclaw gateway restart
 ```
 
