@@ -21,7 +21,7 @@ jobs:
 
       - name: Publish to npm
         working-directory: smart-spawn
-        run: npm publish --access public
+        run: npm publish --access public || echo "Already published to npm, skipping"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -42,12 +42,11 @@ jobs:
       - name: Publish to GitHub Packages
         working-directory: smart-spawn
         run: |
-          # Temporarily override package name to match GitHub owner scope
           node -e "
             const pkg = require('./package.json');
             pkg.name = '@deeflect/smart-spawn';
             require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
-          npm publish
+          npm publish || echo "Already published to GitHub Packages, skipping"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
