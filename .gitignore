@@ -6,6 +6,7 @@ data/*.db-wal
 data/*.db-shm
 .env
 .env.*
+!.env.example
 *.log
 .DS_Store
 CLAUDE.md
