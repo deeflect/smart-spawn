@@ -2,6 +2,9 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { bodyLimit } from "hono/body-limit";
+import { serveStatic } from "hono/bun";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
 import { modelsRoute } from "./routes/models.ts";
 import { recommendRoute } from "./routes/recommend.ts";
 import { pickRoute } from "./routes/pick.ts";
@@ -106,17 +109,12 @@ app.route("/swarm", swarmRoute);
 app.route("/community", communityRoute);
 app.route("/roles", rolesRoute);
 
-// Root — landing page will go here eventually
-app.get("/", (c) =>
-  c.json({
-    data: {
-      name: "Smart Spawn",
-      version: "1.0.0",
-      api: "/api",
-      docs: "https://github.com/deeflect/smart-spawn",
-    },
-  })
-);
+// Landing page — serve static files from /landing
+app.get("/favicon.svg", serveStatic({ path: "./landing/favicon.svg" }));
+app.get("/", (c) => {
+  const html = readFileSync(join(import.meta.dir, "../landing/index.html"), "utf-8");
+  return c.html(html);
+});
 
 // Startup: load cache, then refresh in background
 const port = parseInt(process.env["PORT"] ?? "3000", 10);
