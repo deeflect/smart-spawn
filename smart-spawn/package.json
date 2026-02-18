@@ -1,6 +1,6 @@
 {
   "name": "@deeflectcom/smart-spawn",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Intelligent sub-agent spawning with automatic model selection for OpenClaw",
   "main": "index.ts",
   "type": "module",
@@ -22,5 +22,5 @@
     "url": "https://github.com/deeflect/smart-spawn.git",
     "directory": "smart-spawn"
   },
-  "homepage": "https://github.com/deeflect/smart-spawn#readme"
+  "homepage": "https://ss.deeflect.com"
 }

@@ -2,7 +2,7 @@
   "id": "smart-spawn",
   "name": "Smart Spawn",
   "description": "Intelligent sub-agent spawning with automatic model selection, role composition, and multi-agent orchestration.",
-  "version": "1.1.0",
+  "version": "1.0.5",
   "author": "deeflect",
   "skills": ["skills/smart-spawn"],
   "configSchema": {
