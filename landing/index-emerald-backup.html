@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Spawn — The right AI model for every task</title>
+  <meta name="description" content="Intelligent model routing for OpenClaw. Scores every model against real benchmarks from 5 sources and picks the one that fits your task and budget.">
+  <meta property="og:title" content="Smart Spawn — The right AI model for every task">
+  <meta property="og:description" content="Stop overpaying for AI. Smart Spawn routes every task to the optimal model using benchmark data from 5 sources.">
+  <meta property="og:type" content="website">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Syne', 'system-ui', 'sans-serif'],
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            bg: '#050505',
+            surface: '#0a0a0a',
+            card: '#0e0e0e',
+            border: '#1a1a1a',
+            'border-light': '#282828',
+            muted: '#707070',
+            'muted-light': '#999999',
+            accent: '#10b981',
+            'accent-dim': '#064e3b',
+            'accent-bright': '#34d399',
+          },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body { background: #050505; }
+    ::selection { background: rgba(16, 185, 129, 0.3); color: #fff; }
+
+    /* Grid background */
+    .grid-bg {
+      background-image:
+        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+      background-size: 72px 72px;
+    }
+
+    /* Glassmorphism */
+    .glass {
+      background: rgba(14, 14, 14, 0.6);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    /* Glows */
+    .hero-glow {
+      position: absolute;
+      width: 900px;
+      height: 900px;
+      background: radial-gradient(circle, rgba(16,185,129,0.055) 0%, transparent 55%);
+      top: -350px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    .hero-glow-2 {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(16,185,129,0.03) 0%, transparent 70%);
+      bottom: -100px;
+      right: -100px;
+      pointer-events: none;
+    }
+
+    /* Terminal */
+    .terminal-window {
+      background: #0a0a0a;
+      border: 1px solid #1a1a1a;
+      box-shadow: 0 25px 80px rgba(0,0,0,0.5), 0 0 60px rgba(16,185,129,0.04);
+    }
+    .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .terminal-cursor {
+      display: inline-block;
+      width: 7px;
+      height: 16px;
+      background: #10b981;
+      animation: blink 1s step-end infinite;
+      vertical-align: text-bottom;
+      margin-left: 1px;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    .term-line {
+      opacity: 0;
+      transform: translateY(3px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .term-line.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Fade-in on scroll */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1), transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Mode card hover accent line */
+    .mode-card {
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .mode-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, #10b981 50%, transparent 100%);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .mode-card:hover::after { opacity: 1; }
+    .mode-card:hover {
+      border-color: rgba(16, 185, 129, 0.12);
+      box-shadow: 0 0 40px rgba(16, 185, 129, 0.04);
+    }
+
+    /* Diagram styling */
+    .diagram {
+      background: rgba(16, 185, 129, 0.03);
+      border: 1px solid rgba(16, 185, 129, 0.08);
+    }
+
+    /* Scrollbar */
+    pre::-webkit-scrollbar { height: 3px; }
+    pre::-webkit-scrollbar-track { background: transparent; }
+    pre::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    /* Tabs */
+    .tab-active {
+      background: rgba(16, 185, 129, 0.08);
+      color: #10b981;
+      border-color: rgba(16, 185, 129, 0.25);
+    }
+    .tab-inactive {
+      background: transparent;
+      color: #707070;
+      border-color: #1a1a1a;
+    }
+
+    /* Cost bar animation */
+    .cost-bar {
+      transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .cost-bar.animate { width: var(--bar-width); }
+
+    /* Status dot */
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      animation: status-glow 3s ease-in-out infinite;
+    }
+    @keyframes status-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+      50% { box-shadow: 0 0 0 4px rgba(16,185,129,0); }
+    }
+
+    /* Pulse for loading stats */
+    .pulse { animation: pulse-fade 2s infinite; }
+    @keyframes pulse-fade {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Copy button */
+    .copy-btn:active { transform: scale(0.95); }
+
+    /* Noise texture overlay */
+    .noise::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.015'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.4;
+    }
+
+    /* Smooth section divider */
+    .section-divide {
+      border-top: 1px solid rgba(255,255,255,0.03);
+    }
+  </style>
+</head>
+<body class="font-sans text-white antialiased noise">
+
+  <!-- ==================== NAV ==================== -->
+  <nav class="fixed top-0 w-full z-50 border-b border-white/[0.03] bg-bg/70 backdrop-blur-2xl">
+    <div class="max-w-6xl mx-auto px-5 sm:px-8 h-14 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-2.5 group">
+        <span class="text-accent text-base transition-transform group-hover:scale-110">&#9889;</span>
+        <span class="text-sm font-semibold tracking-tight">Smart Spawn</span>
+      </a>
+      <div class="hidden sm:flex items-center gap-7 text-[13px] text-muted">
+        <a href="#modes" class="hover:text-white transition-colors">Modes</a>
+        <a href="#how-it-works" class="hover:text-white transition-colors">How It Works</a>
+        <a href="#playground" class="hover:text-white transition-colors">Try It</a>
+        <a href="#install" class="hover:text-white transition-colors">Install</a>
+        <a href="https://github.com/deeflect/smart-spawn" target="_blank" class="hover:text-white transition-colors flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+      <a href="https://github.com/deeflect/smart-spawn" target="_blank" class="sm:hidden text-muted hover:text-white transition-colors">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+      </a>
+    </div>
+  </nav>
+
+  <!-- ==================== HERO ==================== -->
+  <section class="relative min-h-screen flex items-center justify-center grid-bg overflow-hidden pt-14">
+    <div class="hero-glow"></div>
+    <div class="hero-glow-2"></div>
+    <div class="relative z-10 max-w-4xl mx-auto px-5 sm:px-8 text-center py-16 sm:py-24">
+      <div class="fade-in">
+        <!-- Badge -->
+        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-border text-xs text-muted mb-8">
+          <div class="status-dot"></div>
+          Open source &middot; for OpenClaw
+        </div>
+
+        <!-- Heading -->
+        <h1 class="font-display text-[2.5rem] sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.08] mb-7">
+          The right model.<br>
+          <span class="text-accent">Every time.</span>
+        </h1>
+
+        <!-- Sub copy -->
+        <p class="text-base sm:text-lg text-muted max-w-2xl mx-auto mb-10 leading-relaxed">
+          Your research query doesn't need a $15/M token model. Your production code deserves better than a free one. Smart Spawn scores every model against real benchmarks and routes to the one that fits &mdash; task, budget, done.
+        </p>
+
+        <!-- CTAs -->
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12">
+          <a href="#install" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-accent hover:bg-emerald-400 text-black font-semibold px-7 py-3 rounded-lg transition-all text-sm hover:shadow-[0_0_24px_rgba(16,185,129,0.2)]">
+            Get Started
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          </a>
+          <a href="https://github.com/deeflect/smart-spawn" target="_blank" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 border border-border hover:border-border-light text-white/90 font-medium px-7 py-3 rounded-lg transition-colors text-sm">
+            <svg class="w-4 h-4 opacity-70" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            View Source
+          </a>
+        </div>
+
+        <!-- Animated Terminal Demo -->
+        <div class="relative max-w-xl mx-auto">
+          <div class="terminal-window rounded-xl overflow-hidden">
+            <!-- Title bar -->
+            <div class="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-surface/50">
+              <div class="terminal-dot bg-[#ff5f57]"></div>
+              <div class="terminal-dot bg-[#febc2e]"></div>
+              <div class="terminal-dot bg-[#28c840]"></div>
+              <span class="ml-2 text-[11px] text-muted/50 font-mono">smart-spawn</span>
+            </div>
+            <!-- Body -->
+            <div id="terminal" class="px-5 py-4 font-mono text-[12.5px] sm:text-[13px] leading-relaxed text-left min-h-[210px] sm:min-h-[200px]">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scroll hint -->
+    <div class="absolute bottom-7 left-1/2 -translate-x-1/2 text-muted/40 animate-bounce">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+    </div>
+  </section>
+
+  <!-- ==================== SPAWN MODES ==================== -->
+  <section id="modes" class="py-24 sm:py-32 px-5 sm:px-8 section-divide">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-14 fade-in">
+        <h2 class="font-display text-3xl sm:text-4xl font-bold mb-4 tracking-tight">Four ways to route</h2>
+        <p class="text-muted max-w-md mx-auto">Different problems call for different strategies. Pick the one that fits.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+        <!-- Single -->
+        <div class="fade-in glass mode-card rounded-xl p-6 sm:p-7">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent text-sm font-bold">1</div>
+            <div>
+              <h3 class="font-semibold text-[15px]">Single</h3>
+              <p class="text-xs text-muted">Best model for the job. Go.</p>
+            </div>
+          </div>
+          <div class="diagram rounded-lg px-4 py-3 mb-4 font-mono text-xs overflow-x-auto">
+            <span class="text-muted-light">Task</span> <span class="text-accent/50">&mdash;&mdash;&rarr;</span> <span class="text-accent">[Score]</span> <span class="text-accent/50">&mdash;&mdash;&rarr;</span> <span class="text-accent-bright font-medium">Best Model</span> <span class="text-accent">&#10003;</span>
+          </div>
+          <p class="text-sm text-muted leading-relaxed">
+            Describe what you need. Smart Spawn scores every model in your budget tier for that task category and picks the winner. Coding tasks get coding specialists. Research gets context monsters. Quick fixes get the fast cheap ones.
+          </p>
+        </div>
+
+        <!-- Collective -->
+        <div class="fade-in glass mode-card rounded-xl p-6 sm:p-7">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent text-sm font-bold">N</div>
+            <div>
+              <h3 class="font-semibold text-[15px]">Collective</h3>
+              <p class="text-xs text-muted">Cheap models, expensive results.</p>
+            </div>
+          </div>
+          <div class="diagram rounded-lg px-4 py-3 mb-4 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed"><span class="text-muted-light">       </span><span class="text-accent/40">&#9484;&#9472;&#9472;&rarr;</span> <span class="text-accent-bright">Model A</span> <span class="text-accent/40">&#9472;&#9472;&#9488;</span>
+<span class="text-muted-light">Task</span> <span class="text-accent/40">&#9472;&#9472;&#9500;&#9472;&#9472;&rarr;</span> <span class="text-accent-bright">Model B</span> <span class="text-accent/40">&#9472;&#9472;&#9508;&#9472;&#9472;&rarr;</span> <span class="text-accent">Merge</span> <span class="text-accent">&#10003;</span>
+<span class="text-muted-light">       </span><span class="text-accent/40">&#9492;&#9472;&#9472;&rarr;</span> <span class="text-accent-bright">Model C</span> <span class="text-accent/40">&#9472;&#9472;&#9496;</span></div>
+          <p class="text-sm text-muted leading-relaxed">
+            Same prompt, three diverse models, parallel execution. Merge the best parts. Budget models brainstorming together consistently match premium models on creative and exploratory work &mdash; at a fraction of the cost.
+          </p>
+        </div>
+
+        <!-- Cascade -->
+        <div class="fade-in glass mode-card rounded-xl p-6 sm:p-7">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent text-sm font-bold">&darr;</div>
+            <div>
+              <h3 class="font-semibold text-[15px]">Cascade</h3>
+              <p class="text-xs text-muted">Start cheap. Escalate only if you have to.</p>
+            </div>
+          </div>
+          <div class="diagram rounded-lg px-4 py-3 mb-4 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed"><span class="text-muted-light">Task</span> <span class="text-accent/40">&#9472;&#9472;&rarr;</span> <span class="text-accent-bright">Cheap</span> <span class="text-accent/40">&#9472;&#9472;&rarr;</span> <span class="text-muted-light">Good?</span>
+<span class="text-muted-light">                    </span><span class="text-accent/40">&#9500;&#9472;&#9472;</span> <span class="text-emerald-400">Yes</span> <span class="text-accent/40">&#9472;&rarr;</span> <span class="text-accent">Done</span> <span class="text-emerald-600 text-[10px]">(saved 90%)</span>
+<span class="text-muted-light">                    </span><span class="text-accent/40">&#9492;&#9472;&#9472;</span> <span class="text-amber-400">No</span>  <span class="text-accent/40">&#9472;&rarr;</span> <span class="text-accent-bright">Premium</span> <span class="text-accent/40">&#9472;&rarr;</span> <span class="text-accent">Done</span> <span class="text-accent">&#10003;</span></div>
+          <p class="text-sm text-muted leading-relaxed">
+            The $0.10 model goes first. If it handles it &mdash; and it usually does &mdash; you just saved 90%+. If not, premium takes over. Most routine tasks never escalate. Your API bill drops without your output changing.
+          </p>
+        </div>
+
+        <!-- Swarm -->
+        <div class="fade-in glass mode-card rounded-xl p-6 sm:p-7">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent text-sm font-bold">&#9733;</div>
+            <div>
+              <h3 class="font-semibold text-[15px]">Swarm</h3>
+              <p class="text-xs text-muted">Big problems, decomposed.</p>
+            </div>
+          </div>
+          <div class="diagram rounded-lg px-4 py-3 mb-4 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed"><span class="text-muted-light">       </span><span class="text-accent/40">&#9484;&#9472;&#9472;</span> <span class="text-muted-light">Research</span>  <span class="text-accent/40">&#9472;&rarr;</span> <span class="text-accent-bright">Gemini Flash</span>
+<span class="text-muted-light">Task</span> <span class="text-accent/40">&#9472;&#9472;&#9500;&#9472;&#9472;</span> <span class="text-muted-light">Code</span>      <span class="text-accent/40">&#9472;&rarr;</span> <span class="text-accent-bright">DeepSeek R1</span>
+<span class="text-muted-light">       </span><span class="text-accent/40">&#9500;&#9472;&#9472;</span> <span class="text-muted-light">Design</span>    <span class="text-accent/40">&#9472;&rarr;</span> <span class="text-accent-bright">Claude Sonnet</span>
+<span class="text-muted-light">       </span><span class="text-accent/40">&#9492;&#9472;&#9472;</span> <span class="text-muted-light">Review</span>    <span class="text-accent/40">&#9472;&rarr;</span> <span class="text-accent-bright">GPT-5</span></div>
+          <p class="text-sm text-muted leading-relaxed">
+            Break a complex project into a dependency graph of subtasks. Each gets routed to its specialist &mdash; the model with the highest score for that specific job. The whole is sharper than any single model could produce.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== COST SAVINGS ==================== -->
+  <section class="py-24 sm:py-32 px-5 sm:px-8 section-divide">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-14 fade-in">
+        <h2 class="font-display text-3xl sm:text-4xl font-bold mb-4 tracking-tight">The math works out</h2>
+        <p class="text-muted max-w-md mx-auto">You're probably spending more than you need to. Here's what changes.</p>
+      </div>
+
+      <!-- Cost comparison bar -->
+      <div class="fade-in max-w-2xl mx-auto mb-14">
+        <div class="glass rounded-xl p-6 sm:p-8">
+          <div class="space-y-6">
+            <div>
+              <div class="flex justify-between text-sm mb-2">
+                <span class="text-muted-light">Without routing <span class="text-muted text-xs">(everything to Opus)</span></span>
+                <span class="font-mono text-sm text-white/70">$15.00<span class="text-muted text-xs">/M</span></span>
+              </div>
+              <div class="h-3 rounded-full bg-border overflow-hidden">
+                <div class="cost-bar h-full rounded-full bg-gradient-to-r from-red-500/50 to-red-400/40" style="--bar-width: 100%; width: 0"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-sm mb-2">
+                <span class="text-accent font-medium">With Smart Spawn <span class="text-accent/50 text-xs">(routed per task)</span></span>
+                <span class="font-mono text-sm text-accent">$2.40<span class="text-accent/50 text-xs">/M avg</span></span>
+              </div>
+              <div class="h-3 rounded-full bg-border overflow-hidden">
+                <div class="cost-bar h-full rounded-full bg-gradient-to-r from-accent to-emerald-400/70" style="--bar-width: 16%; width: 0"></div>
+              </div>
+            </div>
+          </div>
+          <p class="text-xs text-muted mt-5 text-center">Average cost across a mixed workload of coding, research, creative, and routine tasks.</p>
+        </div>
+      </div>
+
+      <!-- Three stats -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6">
+        <div class="fade-in glass rounded-xl p-7 text-center">
+          <div class="font-display text-4xl sm:text-5xl font-bold text-accent mb-2">~80%</div>
+          <div class="text-sm text-white/80 font-medium mb-1">Tasks resolve at budget tier</div>
+          <div class="text-xs text-muted leading-relaxed">Cascade catches the 20% that actually need premium. The rest? A $0.10 model handles it fine.</div>
+        </div>
+        <div class="fade-in glass rounded-xl p-7 text-center">
+          <div class="font-display text-4xl sm:text-5xl font-bold text-accent mb-2">50&times;</div>
+          <div class="text-sm text-white/80 font-medium mb-1">Cheaper for brainstorming</div>
+          <div class="text-xs text-muted leading-relaxed">3 budget models collectively ($0.30/M) vs 1 premium ($15/M). For creative work, the collective wins.</div>
+        </div>
+        <div class="fade-in glass rounded-xl p-7 text-center">
+          <div class="font-display text-4xl sm:text-5xl font-bold text-accent mb-2">6hr</div>
+          <div class="text-sm text-white/80 font-medium mb-1">Automatic benchmark refresh</div>
+          <div class="text-xs text-muted leading-relaxed">New models ship weekly. Scores go stale. Smart Spawn re-pulls from all 5 sources every 6 hours.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== HOW IT WORKS ==================== -->
+  <section id="how-it-works" class="py-24 sm:py-32 px-5 sm:px-8 section-divide">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-14 fade-in">
+        <h2 class="font-display text-3xl sm:text-4xl font-bold mb-4 tracking-tight">Backed by data, not vibes</h2>
+        <p class="text-muted max-w-lg mx-auto">Five benchmark sources. Z-score normalization. Category-specific scoring. This isn't a lookup table.</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+        <!-- Sources -->
+        <div class="fade-in">
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-muted mb-5">Data Sources</h3>
+          <div class="space-y-3.5">
+            <div class="glass rounded-lg px-5 py-3.5 flex items-start gap-3.5 group hover:border-accent/10 transition-colors">
+              <div class="status-dot mt-1.5 shrink-0"></div>
+              <div>
+                <div class="text-sm font-medium">OpenRouter</div>
+                <div class="text-xs text-muted">Model catalog, pricing, capabilities, context lengths</div>
+              </div>
+            </div>
+            <div class="glass rounded-lg px-5 py-3.5 flex items-start gap-3.5 group hover:border-accent/10 transition-colors">
+              <div class="status-dot mt-1.5 shrink-0"></div>
+              <div>
+                <div class="text-sm font-medium">Artificial Analysis</div>
+                <div class="text-xs text-muted">Intelligence, coding, and math quality indices</div>
+              </div>
+            </div>
+            <div class="glass rounded-lg px-5 py-3.5 flex items-start gap-3.5 group hover:border-accent/10 transition-colors">
+              <div class="status-dot mt-1.5 shrink-0"></div>
+              <div>
+                <div class="text-sm font-medium">HuggingFace Leaderboard</div>
+                <div class="text-xs text-muted">MMLU, BBH, and academic benchmarks</div>
+              </div>
+            </div>
+            <div class="glass rounded-lg px-5 py-3.5 flex items-start gap-3.5 group hover:border-accent/10 transition-colors">
+              <div class="status-dot mt-1.5 shrink-0"></div>
+              <div>
+                <div class="text-sm font-medium">LMArena <span class="text-muted text-xs">(Chatbot Arena)</span></div>
+                <div class="text-xs text-muted">ELO ratings from human preference battles</div>
+              </div>
+            </div>
+            <div class="glass rounded-lg px-5 py-3.5 flex items-start gap-3.5 group hover:border-accent/10 transition-colors">
+              <div class="status-dot mt-1.5 shrink-0"></div>
+              <div>
+                <div class="text-sm font-medium">LiveBench</div>
+                <div class="text-xs text-muted">Contamination-free coding and reasoning scores</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scoring explanation -->
+        <div class="fade-in">
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-muted mb-5">How Scoring Works</h3>
+          <div class="glass rounded-xl p-6 space-y-5">
+            <div>
+              <h4 class="text-sm font-semibold mb-2 flex items-center gap-2">
+                <span class="text-accent text-xs">01</span> Normalize
+              </h4>
+              <p class="text-sm text-muted leading-relaxed">
+                Different benchmarks use different scales. An "intelligence index" of 65 means something completely different than an Arena ELO of 1350. Everything gets z-score normalized &mdash; 2&sigma; above average on any benchmark maps to the same score.
+              </p>
+            </div>
+            <div class="border-t border-border/50"></div>
+            <div>
+              <h4 class="text-sm font-semibold mb-2 flex items-center gap-2">
+                <span class="text-accent text-xs">02</span> Categorize
+              </h4>
+              <p class="text-sm text-muted leading-relaxed">
+                Models get scored per category &mdash; coding, reasoning, creative, vision, research, general. Coding benchmarks weigh more for coding tasks. Creativity benchmarks weigh more for creative tasks. Each task type gets its own ranking.
+              </p>
+            </div>
+            <div class="border-t border-border/50"></div>
+            <div>
+              <h4 class="text-sm font-semibold mb-2 flex items-center gap-2">
+                <span class="text-accent text-xs">03</span> Blend
+              </h4>
+              <p class="text-sm text-muted leading-relaxed">
+                Final score = benchmarks + your personal feedback + community ratings + context signals. The more you use it, the better it gets at matching your preferences.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== LIVE STATS ==================== -->
+  <section class="py-24 sm:py-32 px-5 sm:px-8 section-divide">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-12 fade-in">
+        <h2 class="font-display text-3xl sm:text-4xl font-bold mb-4 tracking-tight">Live from the API</h2>
+        <p class="text-muted">Real numbers. Right now.</p>
+      </div>
+      <div id="stats-grid" class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 fade-in">
+        <div class="glass rounded-xl p-6 text-center">
+          <div id="stat-models" class="font-display text-3xl sm:text-4xl font-bold text-accent mb-1 pulse">&mdash;</div>
+          <div class="text-xs sm:text-sm text-muted">Models Tracked</div>
+        </div>
+        <div class="glass rounded-xl p-6 text-center">
+          <div id="stat-benchmarked" class="font-display text-3xl sm:text-4xl font-bold text-accent mb-1 pulse">&mdash;</div>
+          <div class="text-xs sm:text-sm text-muted">With Benchmarks</div>
+        </div>
+        <div class="glass rounded-xl p-6 text-center">
+          <div id="stat-sources" class="font-display text-3xl sm:text-4xl font-bold text-accent mb-1 pulse">&mdash;</div>
+          <div class="text-xs sm:text-sm text-muted">Sources Online</div>
+        </div>
+        <div class="glass rounded-xl p-6 text-center">
+          <div id="stat-refresh" class="font-display text-xl sm:text-2xl font-bold text-accent mb-1 pulse">&mdash;</div>
+          <div class="text-xs sm:text-sm text-muted">Last Refresh</div>
+        </div>
+      </div>
+      <div id="sources-row" class="mt-5 flex flex-wrap justify-center gap-2.5 fade-in"></div>
+    </div>
+  </section>
+
+  <!-- ==================== PLAYGROUND ==================== -->
+  <section id="playground" class="py-24 sm:py-32 px-5 sm:px-8 section-divide">
+    <div class="max-w-2xl mx-auto">
+      <div class="text-center mb-12 fade-in">
+        <h2 class="font-display text-3xl sm:text-4xl font-bold mb-4 tracking-tight">Try it yourself</h2>
+        <p class="text-muted">Describe a task, pick a budget, see what comes back. No signup, no API key.</p>
+      </div>
+      <div class="fade-in glass rounded-2xl p-6 sm:p-8" style="box-shadow: 0 0 80px rgba(16,185,129,0.04);">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs text-muted uppercase tracking-wider mb-2">Task</label>
+            <input id="pg-task" type="text" placeholder="e.g. Build a REST API with rate limiting" class="w-full bg-bg border border-border rounded-lg px-4 py-3 text-sm text-white placeholder-muted/40 focus:outline-none focus:border-accent/40 transition-colors font-mono" value="Write a Python web scraper with error handling">
+          </div>
+          <div>
+            <label class="block text-xs text-muted uppercase tracking-wider mb-2">Budget</label>
+            <select id="pg-budget" class="w-full bg-bg border border-border rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-accent/40 transition-colors appearance-none cursor-pointer">
+              <option value="low">Low &mdash; $0&ndash;1/M tokens</option>
+              <option value="medium" selected>Medium &mdash; $0&ndash;5/M tokens</option>
+              <option value="high">High &mdash; $2&ndash;20/M tokens</option>
+              <option value="any">Any &mdash; best regardless of cost</option>
+            </select>
+          </div>
+          <button id="pg-btn" onclick="runPlayground()" class="w-full bg-accent hover:bg-emerald-400 text-black font-semibold py-3 rounded-lg transition-all text-sm hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+            Pick Model &rarr;
+          </button>
+        </div>
+        <!-- Result -->
+        <div id="pg-result" class="hidden mt-6 pt-6 border-t border-border/50">
+          <div class="space-y-3">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <div class="text-[10px] text-muted uppercase tracking-wider mb-1">Recommended</div>
+                <div id="pg-model" class="text-lg font-bold text-accent"></div>
+                <div id="pg-provider" class="text-xs text-muted font-mono mt-0.5"></div>
+              </div>
+              <div class="text-right">
+                <div class="text-[10px] text-muted uppercase tracking-wider mb-1">Score</div>
+                <div id="pg-score" class="text-2xl font-bold font-display text-white/80"></div>
+              </div>
+            </div>
+            <div id="pg-reason" class="text-sm text-muted"></div>
+            <div class="flex flex-wrap gap-2.5 text-xs">
+              <div class="bg-bg rounded-md px-3 py-1.5 border border-border">
+                <span class="text-muted">In:</span> <span id="pg-input-price" class="text-white font-mono"></span>
+              </div>
+              <div class="bg-bg rounded-md px-3 py-1.5 border border-border">
+                <span class="text-muted">Out:</span> <span id="pg-output-price" class="text-white font-mono"></span>
+              </div>
+              <div class="bg-bg rounded-md px-3 py-1.5 border border-border">
+                <span class="text-muted">Evaluated:</span> <span id="pg-candidates" class="text-white font-mono"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="pg-error" class="hidden mt-6 pt-6 border-t border-border/50 text-red-400 text-sm"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== INSTALL ==================== -->
+  <section id="install" class="py-24 sm:py-32 px-5 sm:px-8 section-divide">
+    <div class="max-w-2xl mx-auto">
+      <div class="text-center mb-12 fade-in">
+        <h2 class="font-display text-3xl sm:text-4xl font-bold mb-4 tracking-tight">Two ways in</h2>
+        <p class="text-muted max-w-md mx-auto">Full plugin integration or lightweight API skill. Both talk to the same scoring engine.</p>
+      </div>
+
+      <div class="fade-in">
+        <!-- Tabs -->
+        <div class="flex border border-border rounded-lg overflow-hidden mb-6">
+          <button id="tab-plugin" onclick="switchTab('plugin')" class="flex-1 px-4 py-2.5 text-sm font-medium border-r border-border transition-colors tab-active">
+            Plugin <span class="hidden sm:inline">&mdash; full integration</span>
+          </button>
+          <button id="tab-skill" onclick="switchTab('skill')" class="flex-1 px-4 py-2.5 text-sm font-medium transition-colors tab-inactive">
+            Skill <span class="hidden sm:inline">&mdash; API only</span>
+          </button>
+        </div>
+
+        <!-- Plugin content -->
+        <div id="content-plugin" class="space-y-4">
+          <div class="glass rounded-xl p-5 sm:p-6">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[10px] text-muted uppercase tracking-wider">Install</span>
+              <button onclick="copyText('openclaw plugins install @deeflectcom/smart-spawn', this)" class="copy-btn text-muted hover:text-white transition-colors text-xs flex items-center gap-1.5">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                Copy
+              </button>
+            </div>
+            <pre class="font-mono text-sm text-emerald-300 overflow-x-auto"><code>openclaw plugins install @deeflectcom/smart-spawn</code></pre>
+          </div>
+          <div class="glass rounded-xl p-5 sm:p-6">
+            <span class="text-[10px] text-muted uppercase tracking-wider">Config <span class="normal-case text-muted/50">(optional)</span></span>
+            <pre class="font-mono text-sm text-white/60 overflow-x-auto leading-relaxed mt-3"><code><span class="text-muted"># openclaw.yaml</span>
+<span class="text-emerald-300">plugins</span>:
+  <span class="text-emerald-300">smart-spawn</span>:
+    <span class="text-emerald-300">budget</span>: <span class="text-amber-300">medium</span>
+    <span class="text-emerald-300">mode</span>: <span class="text-amber-300">single</span></code></pre>
+          </div>
+          <p class="text-sm text-muted flex items-start gap-2.5 pl-1">
+            <span class="text-accent mt-0.5 text-xs">&#9679;</span>
+            Full tool integration. Your agent gets <code class="font-mono text-xs text-emerald-400/80 bg-accent/5 px-1.5 py-0.5 rounded">smart_spawn</code> as a native command &mdash; all spawn modes, feedback loops, local scoring. Plug in and forget about it.
+          </p>
+        </div>
+
+        <!-- Skill content -->
+        <div id="content-skill" class="space-y-4 hidden">
+          <div class="glass rounded-xl p-5 sm:p-6">
+            <span class="text-[10px] text-muted uppercase tracking-wider">Option A &mdash; Send the link to your agent</span>
+            <pre class="font-mono text-sm text-emerald-300 overflow-x-auto break-all mt-3"><code>https://github.com/deeflect/smart-spawn/blob/main/skills/smart-spawn-api/SKILL.md</code></pre>
+            <p class="text-xs text-muted mt-2.5">Paste this URL in chat. Your agent reads it and learns the API.</p>
+          </div>
+          <div class="glass rounded-xl p-5 sm:p-6">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[10px] text-muted uppercase tracking-wider">Option B &mdash; Download to skills folder</span>
+              <button onclick="copyText('mkdir -p ~/.openclaw/skills/smart-spawn-api && curl -sL https://raw.githubusercontent.com/deeflect/smart-spawn/main/skills/smart-spawn-api/SKILL.md -o ~/.openclaw/skills/smart-spawn-api/SKILL.md', this)" class="copy-btn text-muted hover:text-white transition-colors text-xs flex items-center gap-1.5">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                Copy
+              </button>
+            </div>
+            <pre class="font-mono text-sm text-emerald-300 overflow-x-auto leading-relaxed"><code>mkdir -p ~/.openclaw/skills/smart-spawn-api
+curl -sL \
+  https://raw.githubusercontent.com/deeflect/smart-spawn/main/skills/smart-spawn-api/SKILL.md \
+  -o ~/.openclaw/skills/smart-spawn-api/SKILL.md</code></pre>
+          </div>
+          <p class="text-sm text-muted flex items-start gap-2.5 pl-1">
+            <span class="text-accent mt-0.5 text-xs">&#9679;</span>
+            No plugin needed. Your agent calls the API via HTTP &mdash; works with any OpenClaw agent, Claude Code, or anything that can make web requests. Zero dependencies.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== FINAL CTA ==================== -->
+  <section class="py-24 sm:py-32 px-5 sm:px-8 section-divide">
+    <div class="max-w-2xl mx-auto text-center fade-in">
+      <h2 class="font-display text-2xl sm:text-3xl font-bold mb-4 tracking-tight">Ready to stop guessing?</h2>
+      <p class="text-muted mb-8 max-w-md mx-auto">One install command. No config needed. Your agent starts routing to the right model immediately.</p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+        <a href="#install" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-accent hover:bg-emerald-400 text-black font-semibold px-7 py-3 rounded-lg transition-all text-sm hover:shadow-[0_0_24px_rgba(16,185,129,0.2)]">
+          Get Started
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        </a>
+        <a href="https://github.com/deeflect/smart-spawn" target="_blank" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 border border-border hover:border-border-light text-white/90 font-medium px-7 py-3 rounded-lg transition-colors text-sm">
+          Read the source
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="border-t border-white/[0.03] py-10 px-5 sm:px-8">
+    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2 text-sm text-muted">
+        <span class="text-accent text-xs">&#9889;</span>
+        <span>Smart Spawn</span>
+        <span class="text-border">&middot;</span>
+        <span>MIT &middot; by <a href="https://github.com/deeflect" target="_blank" class="hover:text-white transition-colors">deeflect</a></span>
+      </div>
+      <div class="flex items-center gap-6 text-[13px] text-muted">
+        <a href="https://github.com/deeflect/smart-spawn" target="_blank" class="hover:text-white transition-colors">GitHub</a>
+        <a href="https://www.npmjs.com/package/@deeflectcom/smart-spawn" target="_blank" class="hover:text-white transition-colors">npm</a>
+        <a href="https://ss.deeflect.com/api/status" target="_blank" class="hover:text-white transition-colors">API Status</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==================== SCRIPTS ==================== -->
+  <script>
+    // ---- Scroll animations ----
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => entry.target.classList.add('visible'), i * 70);
+          obs.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+    document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+
+    // ---- Cost bar animation ----
+    const costObs = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.querySelectorAll('.cost-bar').forEach((bar, i) => {
+            setTimeout(() => bar.classList.add('animate'), i * 300 + 200);
+          });
+          costObs.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.3 });
+    document.querySelectorAll('.cost-bar').forEach(el => {
+      const parent = el.closest('.glass');
+      if (parent) costObs.observe(parent);
+    });
+
+    // ---- Terminal animation ----
+    class Terminal {
+      constructor(el) {
+        this.el = el;
+        this.examples = [
+          {
+            cmd: 'smart_spawn --task "Write unit tests for auth" --budget medium',
+            lines: [
+              { text: '  Analyzing task...', cls: 'text-muted', delay: 350 },
+              { text: '  Category: coding', cls: 'text-muted', delay: 200 },
+              { text: '  Budget: medium ($0\u20135/M)', cls: 'text-muted', delay: 180 },
+              { text: '  Scoring 247 models across 5 benchmarks...', cls: 'text-muted', delay: 650 },
+              { text: '', cls: '', delay: 80 },
+              { text: '  \u2713 deepseek/deepseek-r1', cls: 'text-emerald-400 font-medium', delay: 0 },
+              { text: '    Score: 91 \u00b7 $0.55/M in \u00b7 $2.19/M out', cls: 'text-white/40', delay: 120 },
+              { text: '    "Top coding model at medium budget"', cls: 'text-muted', delay: 80 },
+            ],
+          },
+          {
+            cmd: 'smart_spawn --task "Research WebGPU browser adoption" --budget low',
+            lines: [
+              { text: '  Analyzing task...', cls: 'text-muted', delay: 350 },
+              { text: '  Category: research', cls: 'text-muted', delay: 200 },
+              { text: '  Budget: low ($0\u20131/M)', cls: 'text-muted', delay: 180 },
+              { text: '  Scoring 247 models across 5 benchmarks...', cls: 'text-muted', delay: 650 },
+              { text: '', cls: '', delay: 80 },
+              { text: '  \u2713 google/gemini-2.5-flash', cls: 'text-emerald-400 font-medium', delay: 0 },
+              { text: '    Score: 88 \u00b7 $0.15/M in \u00b7 $0.60/M out', cls: 'text-white/40', delay: 120 },
+              { text: '    "Best research model at low budget \u2014 1M context"', cls: 'text-muted', delay: 80 },
+            ],
+          },
+          {
+            cmd: 'smart_spawn --task "Draft a product launch post" --budget medium',
+            lines: [
+              { text: '  Analyzing task...', cls: 'text-muted', delay: 350 },
+              { text: '  Category: creative', cls: 'text-muted', delay: 200 },
+              { text: '  Budget: medium ($0\u20135/M)', cls: 'text-muted', delay: 180 },
+              { text: '  Scoring 247 models across 5 benchmarks...', cls: 'text-muted', delay: 650 },
+              { text: '', cls: '', delay: 80 },
+              { text: '  \u2713 anthropic/claude-sonnet-4.5', cls: 'text-emerald-400 font-medium', delay: 0 },
+              { text: '    Score: 84 \u00b7 $3.00/M in \u00b7 $15.00/M out', cls: 'text-white/40', delay: 120 },
+              { text: '    "Top creative model at medium budget"', cls: 'text-muted', delay: 80 },
+            ],
+          },
+        ];
+        this.idx = 0;
+        this.running = true;
+        this.run();
+      }
+
+      async run() {
+        while (this.running) {
+          await this.show(this.examples[this.idx]);
+          this.idx = (this.idx + 1) % this.examples.length;
+          await this.wait(3500);
+          this.el.style.transition = 'opacity 0.4s ease';
+          this.el.style.opacity = '0';
+          await this.wait(450);
+          this.el.style.opacity = '1';
+        }
+      }
+
+      async show(ex) {
+        this.el.innerHTML = '';
+
+        // Command line
+        const cmdRow = document.createElement('div');
+        cmdRow.className = 'flex items-start';
+        const prompt = document.createElement('span');
+        prompt.className = 'text-muted select-none mr-2 shrink-0';
+        prompt.textContent = '$';
+        const cmdSpan = document.createElement('span');
+        cmdSpan.className = 'text-emerald-300/90';
+        cmdRow.appendChild(prompt);
+        cmdRow.appendChild(cmdSpan);
+        this.el.appendChild(cmdRow);
+
+        // Type command
+        for (const ch of ex.cmd) {
+          cmdSpan.textContent += ch;
+          await this.wait(18);
+        }
+
+        await this.wait(400);
+
+        // Show result lines with stagger
+        for (const line of ex.lines) {
+          const div = document.createElement('div');
+          div.className = 'term-line ' + (line.cls || '');
+          div.textContent = line.text;
+          this.el.appendChild(div);
+          await this.wait(40);
+          div.classList.add('show');
+          await this.wait(line.delay);
+        }
+      }
+
+      wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+    }
+
+    // Start terminal when hero is visible
+    const termEl = document.getElementById('terminal');
+    if (termEl) {
+      const termObs = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          new Terminal(termEl);
+          termObs.disconnect();
+        }
+      }, { threshold: 0.2 });
+      termObs.observe(termEl);
+    }
+
+    // ---- Copy to clipboard ----
+    function copyText(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<span class="text-accent text-xs">Copied!</span>';
+        setTimeout(() => btn.innerHTML = orig, 1500);
+      });
+    }
+
+    // ---- Install tabs ----
+    function switchTab(tab) {
+      document.getElementById('tab-plugin').className = 'flex-1 px-4 py-2.5 text-sm font-medium border-r border-border transition-colors ' + (tab === 'plugin' ? 'tab-active' : 'tab-inactive');
+      document.getElementById('tab-skill').className = 'flex-1 px-4 py-2.5 text-sm font-medium transition-colors ' + (tab === 'skill' ? 'tab-active' : 'tab-inactive');
+      document.getElementById('content-plugin').classList.toggle('hidden', tab !== 'plugin');
+      document.getElementById('content-skill').classList.toggle('hidden', tab !== 'skill');
+    }
+
+    // ---- Live stats ----
+    async function fetchStats() {
+      try {
+        const res = await fetch('https://ss.deeflect.com/api/status');
+        const json = await res.json();
+        const d = json.data;
+        document.getElementById('stat-models').textContent = d.modelCount.toLocaleString();
+        document.getElementById('stat-benchmarked').textContent = d.modelsWithBenchmarks.toLocaleString();
+        const sourceKeys = Object.keys(d.sources);
+        const okCount = sourceKeys.filter(k => d.sources[k].status === 'ok').length;
+        document.getElementById('stat-sources').textContent = okCount + '/' + sourceKeys.length;
+        document.getElementById('stat-refresh').textContent = timeAgo(new Date(d.lastRefresh));
+        document.querySelectorAll('.pulse').forEach(el => el.classList.remove('pulse'));
+        // Source pills
+        const row = document.getElementById('sources-row');
+        row.innerHTML = sourceKeys.map(k => {
+          const s = d.sources[k];
+          const ok = s.status === 'ok';
+          return '<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border ' +
+            (ok ? 'border-emerald-900/50 text-emerald-400/80' : 'border-red-900/50 text-red-400/80') + '">' +
+            '<span class="w-1.5 h-1.5 rounded-full ' + (ok ? 'bg-emerald-400' : 'bg-red-400') + '"></span>' +
+            k + ' <span class="text-muted">(' + s.count.toLocaleString() + ')</span></span>';
+        }).join('');
+      } catch (e) {
+        document.getElementById('stat-models').textContent = '\u2014';
+        document.querySelectorAll('.pulse').forEach(el => el.classList.remove('pulse'));
+      }
+    }
+
+    function timeAgo(date) {
+      const s = Math.floor((Date.now() - date.getTime()) / 1000);
+      if (s < 60) return 'just now';
+      if (s < 3600) return Math.floor(s / 60) + 'm ago';
+      if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+      return Math.floor(s / 86400) + 'd ago';
+    }
+
+    // ---- Playground ----
+    async function runPlayground() {
+      const task = document.getElementById('pg-task').value.trim();
+      const budget = document.getElementById('pg-budget').value;
+      const btn = document.getElementById('pg-btn');
+      const result = document.getElementById('pg-result');
+      const error = document.getElementById('pg-error');
+      if (!task) return;
+
+      btn.textContent = 'Scoring...';
+      btn.disabled = true;
+      btn.classList.add('opacity-60');
+      result.classList.add('hidden');
+      error.classList.add('hidden');
+
+      try {
+        const res = await fetch('https://ss.deeflect.com/api/pick?task=' + encodeURIComponent(task) + '&budget=' + budget);
+        const json = await res.json();
+        const d = json.data;
+        document.getElementById('pg-model').textContent = d.name;
+        document.getElementById('pg-provider').textContent = d.id;
+        document.getElementById('pg-score').textContent = d.score;
+        document.getElementById('pg-reason').textContent = d.reason;
+        document.getElementById('pg-input-price').textContent = '$' + d.pricing.prompt + '/M';
+        document.getElementById('pg-output-price').textContent = '$' + d.pricing.completion + '/M';
+        document.getElementById('pg-candidates').textContent = d.candidateCount + ' models';
+        result.classList.remove('hidden');
+      } catch (e) {
+        error.textContent = 'Couldn\u2019t reach the API. Try again in a moment.';
+        error.classList.remove('hidden');
+      }
+
+      btn.textContent = 'Pick Model \u2192';
+      btn.disabled = false;
+      btn.classList.remove('opacity-60');
+    }
+
+    document.getElementById('pg-task').addEventListener('keydown', e => {
+      if (e.key === 'Enter') runPlayground();
+    });
+
+    // ---- Init ----
+    fetchStats();
+  </script>
+</body>
+</html>
