@@ -434,7 +434,7 @@ export default function (api: any) {
           }
 
           // Build plan response with routed models
-          const subtasks = decomposition.steps.map((step) => {
+          const subtasks = await Promise.all(decomposition.steps.map(async (step) => {
             const modelId = step.model
               ? routeModel(step.model.id, directProviders)
               : getFallback(step.category);
@@ -449,8 +449,14 @@ export default function (api: any) {
               context,
             });
 
-            // Plan mode steps use task as-is — blocks are top-level only
-            const stepTask = step.task;
+            const stepTask = await client.composeTaskPrompt({
+              task: step.task,
+              persona: input.persona,
+              stack: input.stack,
+              domain: input.domain,
+              format: input.format,
+              guardrails: input.guardrails,
+            }) ?? step.task;
 
             return {
               step: step.step,
@@ -461,7 +467,7 @@ export default function (api: any) {
               reason: step.reason,
               label: `smart-spawn-plan-${step.step}: ${step.category} (${modelId.split("/").pop()})`,
             };
-          });
+          }));
 
           return {
             content: [{
@@ -523,7 +529,7 @@ export default function (api: any) {
 
           // Build swarm response with routed models
           const dag = swarmResult.dag;
-          const dagTasks = dag.tasks.map((t) => {
+          const dagTasks = await Promise.all(dag.tasks.map(async (t) => {
             const modelId = t.model
               ? routeModel(t.model.id, directProviders)
               : getFallback(t.category);
@@ -538,9 +544,18 @@ export default function (api: any) {
               context,
             });
 
+            const swarmTask = await client.composeTaskPrompt({
+              task: t.description,
+              persona: input.persona,
+              stack: input.stack,
+              domain: input.domain,
+              format: input.format,
+              guardrails: input.guardrails,
+            }) ?? t.description;
+
             return {
               id: t.id,
-              task: t.description,
+              task: swarmTask,
               category: t.category,
               model: modelId,
               budget: t.budget,
@@ -550,7 +565,7 @@ export default function (api: any) {
               reason: t.reason,
               label: `smart-spawn-${t.id}: ${t.category} (${modelId.split("/").pop()})`,
             };
-          });
+          }));
 
           return {
             content: [{

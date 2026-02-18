@@ -3,7 +3,7 @@ import { pipeline } from "../enrichment/pipeline.ts";
 import { dbGetPersonalScore, dbGetContextScore, dbGetCommunityScore } from "../db.ts";
 import type { Budget, Category } from "../types.ts";
 import { BUDGET_THRESHOLDS } from "../types.ts";
-import { KNOWN_CATEGORIES, blendScore } from "../scoring-utils.ts";
+import { KNOWN_CATEGORIES, blendScore, classifyTask } from "../scoring-utils.ts";
 import { computeContextBoost, parseContextTags } from "../context-signals.ts";
 import { sortModelsByScore } from "../model-selection.ts";
 import { sanitizeBudget, sanitizeModelIdList, sanitizeText } from "../utils/validation.ts";
@@ -30,7 +30,7 @@ pickRoute.get("/", (c) => {
 
   const category: Category = KNOWN_CATEGORIES.includes(taskParam as Category)
     ? (taskParam as Category)
-    : "general";
+    : classifyTask(taskParam);
 
   // Exclude specific model IDs (used by cascade to avoid duplicates)
   const excludeIds = sanitizeModelIdList(c.req.query("exclude") ?? undefined, 50);

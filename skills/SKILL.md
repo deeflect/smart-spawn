@@ -91,6 +91,30 @@ POST https://ss.deeflect.com/api/swarm
 
 Returns a dependency graph of parallel tasks with models assigned.
 
+## Role Composition (No Plugin)
+
+If you are not using the plugin, you can still get modular role/system-style prompting from the API.
+
+1. Discover available block IDs:
+```bash
+GET https://ss.deeflect.com/api/roles/blocks
+```
+
+2. Compose a role-enriched prompt:
+```bash
+POST https://ss.deeflect.com/api/roles/compose
+{
+  "task": "Build a SaaS onboarding flow",
+  "persona": "fullstack-engineer",
+  "stack": ["nextjs", "typescript", "postgres"],
+  "domain": "saas",
+  "format": "full-implementation",
+  "guardrails": ["code", "security", "production"]
+}
+```
+
+3. Use returned `fullPrompt` as the `task` for `sessions_spawn`.
+
 ## Usage Pattern
 
 For any task that needs a sub-agent:

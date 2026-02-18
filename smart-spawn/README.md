@@ -30,6 +30,7 @@ Just use your agent normally. Smart Spawn adds a `smart_spawn` tool that the age
 - **Single** — Pick the best model, spawn one agent
 - **Collective** — Pick N diverse models, run in parallel, merge results
 - **Cascade** — Start cheap, escalate to premium if needed
+- **Plan** — Decompose sequential multi-step tasks and assign best model per step
 - **Swarm** — Decompose complex tasks into a DAG of sub-tasks with optimal model per step
 
 ## Configuration
@@ -48,9 +49,10 @@ Optional — add to your OpenClaw config under `plugins.entries.smart-spawn.conf
 |---------|---------|---------|
 | `apiUrl` | `https://ss.deeflect.com/api` | Your own API URL if self-hosting |
 | `defaultBudget` | `medium` | `low`, `medium`, `high`, `any` |
-| `defaultMode` | `single` | `single`, `collective`, `cascade`, `swarm` |
+| `defaultMode` | `single` | `single`, `collective`, `cascade`, `plan`, `swarm` |
 | `collectiveCount` | `3` | Number of models for collective mode (2-5) |
 | `telemetryOptIn` | `false` | Opt-in to anonymous community telemetry |
+| `communityUrl` | `apiUrl` | Community API URL for shared telemetry |
 
 ## How It Works
 

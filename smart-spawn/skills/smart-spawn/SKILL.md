@@ -68,11 +68,12 @@ This is the OpenClaw built-in tool you call AFTER smart_spawn:
 ## Role Blocks (Optional)
 
 You can hint what kind of expert is needed. **Only include what's clearly relevant — omit if unsure.** The API enriches the task prompt with expert context.
+Under the hood this uses `POST /api/roles/compose` before model routing.
 
 ### persona — who the sub-agent should be
 `software-engineer` `frontend-engineer` `backend-engineer` `devops-engineer` `data-engineer` `ml-engineer` `architect` `analyst` `writer` `technical-writer` `product-manager` `debugger` `ui-designer` `sysadmin` `assistant`
 
-### stack — tech expertise (array, max 4)
+### stack — tech expertise (array; include only relevant blocks)
 `react` `nextjs` `typescript` `python` `rust` `go` `nodejs` `postgres` `redis` `docker` `kubernetes` `aws` `tailwind` `llm` `rag` (and many more)
 
 ### domain — industry context (one)

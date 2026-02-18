@@ -8,7 +8,11 @@
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
-    "refresh": "bun run -e \"import { pipeline } from './src/enrichment/pipeline.ts'; await pipeline.refresh();\""
+    "refresh": "bun run -e \"import { pipeline } from './src/enrichment/pipeline.ts'; await pipeline.refresh();\"",
+    "mcp:dev": "bun run --cwd mcp-server dev",
+    "mcp:start": "bun run --cwd mcp-server start",
+    "mcp:typecheck": "bun run --cwd mcp-server typecheck",
+    "mcp:test": "bun run --cwd mcp-server test"
   },
   "devDependencies": {
     "@types/bun": "latest"

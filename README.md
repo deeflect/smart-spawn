@@ -25,7 +25,7 @@ openclaw gateway restart
 >
 > Smart Spawn picks the best coding model in your budget tier and spawns a coder sub-agent.
 
-**Plugin config** (optional — add to your OpenClaw config under `extensions.smart-spawn`):
+**Plugin config** (optional — add to your OpenClaw config under `plugins.entries.smart-spawn.config`):
 
 ```json
 {
@@ -39,13 +39,17 @@ openclaw gateway restart
 |---------|---------|---------|
 | `apiUrl` | `https://ss.deeflect.com/api` | Your own API URL if self-hosting |
 | `defaultBudget` | `medium` | `low`, `medium`, `high`, `any` |
-| `defaultMode` | `single` | `single`, `collective`, `cascade`, `swarm` |
+| `defaultMode` | `single` | `single`, `collective`, `cascade`, `plan`, `swarm` |
+| `collectiveCount` | `3` | Number of models for collective mode (2-5 recommended) |
+| `telemetryOptIn` | `false` | Opt-in to anonymous community telemetry |
+| `communityUrl` | `apiUrl` | Alternate community telemetry endpoint |
 
 ### Spawn Modes
 
 - **Single** — Pick one best model, spawn one agent
 - **Collective** — Pick N diverse models, spawn parallel agents, merge results
 - **Cascade** — Start cheap, escalate to premium if quality is insufficient
+- **Plan** — Decompose sequential multi-step tasks and assign best model per step
 - **Swarm** — Decompose complex tasks into a DAG of sub-tasks with optimal model per step
 
 ---
@@ -260,6 +264,32 @@ Anonymous community outcome report for shared intelligence.
 
 Compose a role-enriched prompt from persona/stack/domain blocks.
 
+```bash
+curl -X POST "https://ss.deeflect.com/api/roles/compose" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "Build a dashboard with auth and billing",
+    "persona": "fullstack-engineer",
+    "stack": ["nextjs", "typescript", "postgres", "stripe"],
+    "domain": "saas",
+    "format": "full-implementation",
+    "guardrails": ["code", "security", "production"]
+  }'
+```
+
+Returns:
+- `hasRole` — whether any valid blocks were resolved
+- `fullPrompt` — composed prompt that includes role blocks + task
+- `warnings` — unknown block IDs, if any
+
+### GET /roles/blocks
+
+List available role block IDs for `persona`, `stack`, `domain`, `format`, and `guardrails`.
+
+```bash
+curl "https://ss.deeflect.com/api/roles/blocks"
+```
+
 ---
 
 ## Self-Hosting
@@ -273,6 +303,124 @@ git clone https://github.com/deeflect/smart-spawn.git
 cd smart-spawn
 bun install
 bun run dev    # starts on http://localhost:3000
+```
+
+### Universal MCP Server (OpenRouter Orchestration)
+
+Smart Spawn now includes a local MCP server that can run async multi-agent workflows and return merged results to Codex/Claude/any MCP client.
+
+```bash
+cd mcp-server
+npm install
+OPENROUTER_API_KEY=your_key_here bun run start
+```
+
+Default local storage:
+- `<current-working-directory>/.smart-spawn-mcp/db.sqlite`
+- `<current-working-directory>/.smart-spawn-mcp/artifacts/<run_id>/...`
+
+Root scripts:
+
+```bash
+bun run mcp:dev
+bun run mcp:start
+bun run mcp:typecheck
+bun run mcp:test
+```
+
+Required env vars for execution:
+- `OPENROUTER_API_KEY`
+
+Optional env vars:
+- `SMART_SPAWN_API_URL` (default: `https://ss.deeflect.com/api`)
+- `SMART_SPAWN_MCP_HOME` (default: `<cwd>/.smart-spawn-mcp`)
+- `MAX_PARALLEL_RUNS` (default: `2`)
+- `MAX_PARALLEL_NODES_PER_RUN` (default: `4`)
+- `MAX_USD_PER_RUN` (default: `5`)
+- `NODE_TIMEOUT_SECONDS` (default: `180`)
+- `RUN_TIMEOUT_SECONDS` (default: `1800`)
+
+### Connect MCP Client (stdio)
+
+Register the MCP server as a stdio process in your MCP client.
+
+Example (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "smart-spawn": {
+      "command": "bun",
+      "args": [
+        "run",
+        "--cwd",
+        "/absolute/path/to/smart-spawn/mcp-server",
+        "start"
+      ],
+      "env": {
+        "OPENROUTER_API_KEY": "your_openrouter_key_here",
+        "SMART_SPAWN_API_URL": "https://ss.deeflect.com/api"
+      }
+    }
+  }
+}
+```
+
+For Codex or any other MCP host, use the same stdio command + env values in that host's MCP server config format.
+
+### MCP Tools
+
+- `smartspawn_health` — health checks for OpenRouter/API/DB/storage/worker
+- `smartspawn_run_create` — create async run and return `run_id`
+- `smartspawn_run_status` — get status/progress for a run
+- `smartspawn_run_result` — get merged output (and optional raw outputs)
+- `smartspawn_artifact_get` — fetch a stored artifact by `run_id` + `node_id`
+- `smartspawn_run_list` — list recent runs
+- `smartspawn_run_cancel` — cancel queued/running run
+
+### First Run Workflow
+
+1. Check health:
+
+```json
+{"name":"smartspawn_health","arguments":{}}
+```
+
+2. Create run:
+
+```json
+{
+  "name": "smartspawn_run_create",
+  "arguments": {
+    "task": "Design and implement a small REST API with tests",
+    "mode": "swarm",
+    "budget": "medium",
+    "role": {
+      "persona": "backend-engineer",
+      "stack": ["typescript", "nodejs", "postgres"],
+      "format": "full-implementation",
+      "guardrails": ["code", "security", "production"]
+    }
+  }
+}
+```
+
+3. Poll status until terminal state (`completed`, `failed`, `canceled`):
+
+```json
+{"name":"smartspawn_run_status","arguments":{"run_id":"<run_id>"}}
+```
+
+4. Get merged result:
+
+```json
+{"name":"smartspawn_run_result","arguments":{"run_id":"<run_id>"}}
+```
+
+5. Optional: inspect artifacts directly (example: merged output artifact):
+
+```json
+{"name":"smartspawn_artifact_get","arguments":{"run_id":"<run_id>","node_id":"merged"}}
 ```
 
 ### Docker
@@ -337,6 +485,14 @@ smart-spawn/
 │   ├── openclaw.plugin.json    # Plugin manifest
 │   ├── src/api-client.ts       # API client for plugin
 │   └── skills/smart-spawn/     # Companion SKILL.md
+├── skills/                     # API-only skill (no plugin required)
+│   └── SKILL.md
+├── mcp-server/                 # Universal MCP server (async orchestration)
+│   ├── src/index.ts            # MCP stdio entrypoint
+│   ├── src/tools.ts            # MCP tool contracts
+│   ├── src/runtime/            # Planner + queue + executor
+│   ├── src/db.ts               # Run/node/event/artifact persistence
+│   └── src/storage.ts          # Artifact filesystem manager
 ├── data/                       # SQLite database (auto-created)
 ├── Dockerfile
 ├── railway.json

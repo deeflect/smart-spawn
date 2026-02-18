@@ -1,4 +1,5 @@
 node_modules/
+.smart-spawn-mcp/
 dist/
 data/models.json
 data/*.db

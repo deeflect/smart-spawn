@@ -73,7 +73,20 @@ api.get("/", (c) =>
     data: {
       name: "Model Intelligence API",
       version: "1.0.0",
-      endpoints: ["/api/models", "/api/recommend", "/api/pick", "/api/compare", "/api/decompose", "/api/swarm", "/api/community", "/api/status", "/api/refresh", "/api/spawn-log"],
+      endpoints: [
+        "/api/models",
+        "/api/recommend",
+        "/api/pick",
+        "/api/compare",
+        "/api/decompose",
+        "/api/swarm",
+        "/api/community",
+        "/api/roles/blocks",
+        "/api/roles/compose",
+        "/api/status",
+        "/api/refresh",
+        "/api/spawn-log",
+      ],
     },
   })
 );
